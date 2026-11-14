@@ -1,4 +1,6 @@
-# Python
+# Local test clones
+Indra/
+
 __pycache__/
 *.py[cod]
 *$py.class
