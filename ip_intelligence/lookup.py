@@ -6,10 +6,10 @@ Strictly distinguishes approximate heuristics from verified records (Section 7).
 
 import ipaddress
 import socket
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import httpx
 
-from backend.database import SessionLocal, IPRecord, IPReputation
+from backend.database import SessionLocal, IPRecord
 from core.logger import logger
 
 class IPLookupEngine:
@@ -69,7 +69,7 @@ class IPLookupEngine:
                         result["geolocation"]["city"] = data.get("city")
                         result["network"]["asn"] = data.get("asn")
                         result["network"]["organization"] = data.get("org")
-            except Exception as e:
+            except Exception:
                 result["lookup_notice"] = "External lookup unavailable or offline; cached/local data only."
 
         # Save to database

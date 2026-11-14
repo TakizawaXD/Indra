@@ -2,14 +2,26 @@
 INDRA INFINITY SECURITY ∞ — LICENSE & ACCESS AUTHORIZATION GUARD
 Restricts system access exclusively to Indra.
 Architect & Creator: Takizawa
+
+The plaintext key is never stored in source code: only its SHA-256 digest.
+To rotate the key, run:  python -m core.license --hash "<NEW-KEY>"
+and replace AUTHORIZED_KEY_SHA256 with the printed value.
 """
 
+import hashlib
+import hmac
 import os
-from pathlib import Path
+import sys
+
 from core.config import settings
 from core.logger import logger
 
-AUTHORIZED_INDRA_KEY = "INDRA-TAKIZAWA-INFINITY-KEY-9F4E-8C2A-7B1D-2026"
+AUTHORIZED_KEY_SHA256 = "f8a35a757c24e48cb01bf388a57bfedef9a82bbb76fb81f71c40c44b136e9919"
+
+
+def hash_key(key: str) -> str:
+    return hashlib.sha256(key.strip().encode("utf-8")).hexdigest()
+
 
 class IndraLicenseGuard:
     """Verifies that the platform is licensed and authorized for Indra."""
@@ -25,18 +37,19 @@ class IndraLicenseGuard:
         key_path = settings.CONFIG_DIR / "license.key"
         if key_path.exists():
             try:
-                with open(key_path, "r", encoding="utf-8") as f:
-                    return f.read().strip()
-            except Exception:
+                return key_path.read_text(encoding="utf-8").strip()
+            except OSError:
                 pass
 
         return ""
 
     @classmethod
     def verify_license(cls) -> bool:
-        """Verifies license key authenticity."""
+        """Verifies license key authenticity (constant-time digest comparison)."""
         key = cls.get_current_key()
-        return key == AUTHORIZED_INDRA_KEY
+        if not key:
+            return False
+        return hmac.compare_digest(hash_key(key), AUTHORIZED_KEY_SHA256)
 
     @classmethod
     def enforce_license(cls):
@@ -54,3 +67,10 @@ class IndraLicenseGuard:
             logger.critical(msg)
             raise PermissionError("Acceso bloqueado: Llave de licencia exclusiva para Indra requerida.")
 
+
+if __name__ == "__main__":
+    if len(sys.argv) == 3 and sys.argv[1] == "--hash":
+        print(hash_key(sys.argv[2]))
+    else:
+        print("Licencia valida." if IndraLicenseGuard.verify_license() else "Licencia NO valida.")
+        sys.exit(0 if IndraLicenseGuard.verify_license() else 1)

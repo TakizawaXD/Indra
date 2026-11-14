@@ -27,7 +27,7 @@
 | **Phase 13** | GOJO Interactive Terminal CLI | COMPLETED | Verified | Rich Gojo-themed interactive CLI shell with auto-complete (`terminal/`) |
 | **Phase 14** | Gojo Satoru Local Web Dashboard (FastAPI + JS/CSS) | COMPLETED | Verified | Port 8000, 15 complete screens, WebSockets, Chart.js, Gojo theme |
 | **Phase 15** | HOLLOW PURPLE Protocol Integration | COMPLETED | Verified | Unified 5-phase convergence (Blue -> Red -> Purple -> Infinity -> Six Eyes) |
-| **Phase 16** | Comprehensive Automated Testing & Optimization | COMPLETED | 13/13 Passed | `test_core.py`, `test_full_suite.py`, `test_hollow_purple.py` all passing with exit code 0 |
+| **Phase 16** | Comprehensive Automated Testing & Optimization | COMPLETED | 25/25 Passed | `test_core.py`, `test_full_suite.py`, `test_hollow_purple.py`, `test_license.py` (isolated temp data dir) |
 | **Phase 17** | Final Documentation, Manuals & Stable Release | COMPLETED | Verified | Complete `README.md` and operational guide |
 
 ---
@@ -35,15 +35,16 @@
 ## 2. TEST RESULTS SUMMARY
 - `tests/test_core.py`: Database models, scope permissions, event engine, Gojo AI knowledge — **OK (4 tests)**
 - `tests/test_full_suite.py`: Infinity Shield WAF, IP ban/unban, Red password entropy, Purple risk & report compilation, IP lookup & CSV export, Attack Lab simulators, Subnet & DNS calculators, FastAPI REST endpoints & security headers — **OK (8 tests)**
+- `tests/test_full_suite.py` (hardening): loopback anti-lockout, ban validation, scope 403, CIDR sub-range scope, bounded subnet expansion, Host-header validation, no wildcard CORS, HTML report escaping, API token — **OK (10 tests)**
 - `tests/test_hollow_purple.py`: Full 5-phase Hollow Purple convergence execution — **OK (1 test)**
-- **Total Tests Passed:** 13 / 13 (100% Success Rate)
+- `tests/test_license.py`: Hashed license verification — **OK (3 tests)**
+- **Total Tests Passed:** 25 / 25 (100% Success Rate)
 
 ---
 
 ## 3. INSTALLED DEPENDENCIES (VERIFIED ON PYTHON 3.10+)
 - `fastapi`, `uvicorn`, `pydantic`, `pydantic-settings`
-- `sqlalchemy`, `aiosqlite`
-- `httpx`, `requests`, `dnspython`
-- `cryptography`, `bcrypt`, `pyjwt`
+- `sqlalchemy`
+- `httpx`, `dnspython`
 - `rich`, `prompt-toolkit`
-- `python-multipart`, `aiofiles`, `psutil`
+- `psutil`

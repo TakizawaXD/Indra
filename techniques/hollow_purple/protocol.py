@@ -5,9 +5,10 @@ governed by INFINITY (Shield) and verified by SIX EYES.
 "Nine Ropes. Polarized Light. Crow and Shomyo. The Gap Between Within and Without: Hollow Purple."
 """
 
-import asyncio
-from datetime import datetime
+import ipaddress
 from typing import Dict, Any, Optional
+
+from core.timeutils import utcnow
 
 from core.logger import logger
 from core.permissions import TargetAuthorizer
@@ -51,7 +52,7 @@ class HollowPurpleProtocol:
 
         results: Dict[str, Any] = {
             "target": target,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utcnow().isoformat(),
             "phases": {}
         }
 
@@ -62,8 +63,15 @@ class HollowPurpleProtocol:
         ports = [21, 22, 80, 443, 8000, 8080]
         blue_results = await blue_recon.scan_target_ports_and_save(target, project_id=project_id, ports=ports)
         web_recon = None
-        if any(p["port"] in [80, 443, 8000, 8080] for p in blue_results):
-            web_target = f"http://{target}"
+        web_target = None
+        open_ports = {p["port"] for p in blue_results}
+        host_part = f"[{target}]" if cls._is_ipv6(target) else target
+        for port, scheme in ((443, "https"), (80, "http"), (8080, "http"), (8000, "http")):
+            if port in open_ports:
+                default = (scheme == "https" and port == 443) or (scheme == "http" and port == 80)
+                web_target = f"{scheme}://{host_part}" if default else f"{scheme}://{host_part}:{port}"
+                break
+        if web_target:
             web_recon = await blue_recon.audit_web_target(web_target, project_id=project_id)
 
         results["phases"]["blue_recon"] = {
@@ -76,8 +84,8 @@ class HollowPurpleProtocol:
         # -------------------------------------------------------------
         logger.info("[HOLLOW PURPLE] Phase 2: RED CORE (Testing Security Controls)...")
         red_results = {}
-        if web_recon and web_recon.get("status_code"):
-            http_audit = await red_operations.audit_http_methods(f"http://{target}", project_id=project_id)
+        if web_target and web_recon and web_recon.get("status_code"):
+            http_audit = await red_operations.audit_http_methods(web_target, project_id=project_id)
             red_results["http_methods"] = http_audit
 
         results["phases"]["red_operations"] = red_results
@@ -128,3 +136,10 @@ class HollowPurpleProtocol:
         logger.info("================================================================")
 
         return results
+
+    @staticmethod
+    def _is_ipv6(target: str) -> bool:
+        try:
+            return ipaddress.ip_address(target).version == 6
+        except ValueError:
+            return False

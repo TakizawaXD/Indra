@@ -6,12 +6,11 @@ to authorized targets within registered projects.
 
 import ipaddress
 from typing import Optional, Tuple
-from backend.database import SessionLocal, AuthorizedTarget, Project, AuditLog
+from backend.database import SessionLocal, AuthorizedTarget, AuditLog
 from core.logger import logger
 
 class ScopeViolationError(PermissionError):
     """Raised when an operation targets an unauthorized IP or domain."""
-    pass
 
 class TargetAuthorizer:
     """
@@ -63,9 +62,13 @@ class TargetAuthorizer:
                 if "/" in reg_target:
                     try:
                         network = ipaddress.ip_network(reg_target, strict=False)
-                        target_ip = ipaddress.ip_address(clean_target)
-                        if target_ip in network:
-                            cls._log_authorization_check(target, True, f"Target IP falls in CIDR {reg_target}", operator_username)
+                        if "/" in clean_target:
+                            target_net = ipaddress.ip_network(clean_target, strict=False)
+                            inside = target_net.version == network.version and target_net.subnet_of(network)
+                        else:
+                            inside = ipaddress.ip_address(clean_target) in network
+                        if inside:
+                            cls._log_authorization_check(target, True, f"Target falls in CIDR {reg_target}", operator_username)
                             return True, f"Target falls within authorized CIDR block {reg_target}"
                     except ValueError:
                         pass

@@ -6,12 +6,14 @@ Respects user privacy and consent policies (Section 7).
 
 import csv
 import io
-from datetime import datetime, timedelta
+import ipaddress
+from datetime import timedelta
 from typing import Dict, Any, List, Optional
 
 from backend.database import SessionLocal, IPRecord, IPHistory
 from core.logger import logger
 from core.event_engine import event_bus, EventType, SecurityEventPayload
+from core.timeutils import utcnow
 
 class IPLoggerService:
     """Manages visit auditing, history tracking, CSV exports, and retention."""
@@ -22,48 +24,54 @@ class IPLoggerService:
         ip_address: str,
         path: str,
         user_agent: Optional[str] = None,
-        consent_status: str = "informed_service_visit"
+        consent_status: str = "informed_service_visit",
+        emit_event: bool = True
     ) -> Dict[str, Any]:
         """Records an informed visit to a managed service endpoint."""
         with SessionLocal() as db:
             record = db.query(IPRecord).filter(IPRecord.ip_address == ip_address).first()
             if not record:
-                is_private = ip_address.startswith("192.168.") or ip_address.startswith("10.") or ip_address == "127.0.0.1"
+                try:
+                    ip_obj = ipaddress.ip_address(ip_address)
+                    is_private = ip_obj.is_private or ip_obj.is_loopback
+                except ValueError:
+                    is_private = False
                 record = IPRecord(
                     ip_address=ip_address,
                     is_private=is_private,
-                    last_seen=datetime.utcnow()
+                    last_seen=utcnow()
                 )
                 db.add(record)
                 db.commit()
                 db.refresh(record)
             else:
-                record.last_seen = datetime.utcnow()
+                record.last_seen = utcnow()
 
             history_entry = IPHistory(
                 ip_id=record.id,
                 event_type="logger_visit",
-                path_accessed=path,
+                path_accessed=path[:250] if path else path,
                 user_agent=user_agent[:250] if user_agent else None,
                 consent_status=consent_status
             )
             db.add(history_entry)
             db.commit()
 
-        event_bus.emit(SecurityEventPayload(
-            event_type=EventType.IP_ANALYZED,
-            origin_module="IP_INTEL",
-            category="VISIT_LOGGER",
-            severity="INFO",
-            description=f"Informed visit logged from {ip_address} accessing {path}",
-            source_ip=ip_address,
-            target=path
-        ))
+        if emit_event:
+            event_bus.emit(SecurityEventPayload(
+                event_type=EventType.IP_ANALYZED,
+                origin_module="IP_INTEL",
+                category="VISIT_LOGGER",
+                severity="INFO",
+                description=f"Informed visit logged from {ip_address} accessing {path}",
+                source_ip=ip_address,
+                target=path
+            ))
 
         return {
             "ip": ip_address,
             "path": path,
-            "recorded_at": datetime.utcnow().isoformat(),
+            "recorded_at": utcnow().isoformat(),
             "consent_status": consent_status
         }
 
@@ -114,7 +122,7 @@ class IPLoggerService:
     @classmethod
     def prune_retention(cls, days: int = 30) -> int:
         """Enforces privacy retention by deleting records older than N days."""
-        threshold = datetime.utcnow() - timedelta(days=days)
+        threshold = utcnow() - timedelta(days=days)
         with SessionLocal() as db:
             deleted = db.query(IPHistory).filter(IPHistory.recorded_at < threshold).delete()
             db.commit()

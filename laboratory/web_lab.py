@@ -4,7 +4,7 @@ In-memory safe execution sandbox for red team tests and defense validation.
 """
 
 import re
-from typing import Dict, Any, List
+from typing import Dict, Any
 from laboratory.scenarios import LAB_SCENARIOS
 from backend.database import SessionLocal, LaboratoryRun
 from core.logger import logger

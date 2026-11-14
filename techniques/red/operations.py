@@ -6,14 +6,14 @@ Executes controlled, non-destructive security audits against authorized targets 
 
 import math
 import re
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import httpx
 
 from core.logger import logger
 from core.permissions import TargetAuthorizer
 from core.event_engine import event_bus, EventType, SecurityEventPayload
 from techniques.infinity.shield import infinity_shield
-from backend.database import SessionLocal, Vulnerability, Threat
+from backend.database import SessionLocal, Vulnerability
 
 class RedOperations:
     """

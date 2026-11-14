@@ -8,7 +8,86 @@ document.addEventListener("DOMContentLoaded", () => {
   initWebSocket();
   loadDashboardData();
   initHollowCanvas();
+  // Refresco periódico de respaldo (por si el WebSocket no está disponible)
+  setInterval(loadDashboardData, 15000);
 });
+
+// --- Utilidades ---------------------------------------------------------------
+
+/** Escapa texto para insertarlo de forma segura en HTML (previene XSS). */
+function escapeHtml(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Lee el token opcional de la API (GOJO_API_TOKEN) guardado en este navegador. */
+function getApiToken() {
+  try {
+    return localStorage.getItem("indraApiToken") || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function setApiToken(token) {
+  try {
+    localStorage.setItem("indraApiToken", token);
+  } catch (e) {
+    /* almacenamiento no disponible */
+  }
+}
+
+/**
+ * fetch() con token opcional, manejo de 401 y errores HTTP.
+ * Devuelve el JSON de la respuesta o lanza un Error con el detalle del servidor.
+ */
+async function apiFetch(url, options = {}, retried = false) {
+  const headers = Object.assign({}, options.headers || {});
+  const token = getApiToken();
+  if (token) headers["X-API-Key"] = token;
+
+  const res = await fetch(url, Object.assign({}, options, { headers }));
+
+  if (res.status === 401 && !retried) {
+    const newToken = window.prompt("Este servidor requiere un token de API (GOJO_API_TOKEN):");
+    if (newToken) {
+      setApiToken(newToken.trim());
+      return apiFetch(url, options, true);
+    }
+  }
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (e) {
+    data = null;
+  }
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    if (data) {
+      if (typeof data.detail === "string") detail = data.detail;
+      else if (Array.isArray(data.detail)) detail = data.detail.map(d => d.msg).join("; ");
+      else if (data.reason) detail = data.reason;
+      else if (data.error) detail = data.error;
+    }
+    throw new Error(detail);
+  }
+  return data;
+}
+
+function postJson(url, body) {
+  return apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+}
 
 // Descripción intuitiva de cada pestaña para guiar al usuario
 const TAB_DESCRIPTIONS = {
@@ -76,50 +155,73 @@ function switchTab(targetTab) {
 }
 
 // --- Terminal en Vivo (WebSocket) ---
+let wsReconnectDelay = 2000;
+let dashboardRefreshTimer = null;
+
+/** Agrupa múltiples eventos en un solo refresco (evita tormentas de peticiones). */
+function scheduleDashboardRefresh() {
+  if (dashboardRefreshTimer) return;
+  dashboardRefreshTimer = setTimeout(() => {
+    dashboardRefreshTimer = null;
+    loadDashboardData();
+  }, 2000);
+}
+
 function initWebSocket() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl = `${protocol}//${window.location.host}/api/ws/telemetry`;
+  const token = getApiToken();
+  const query = token ? `?token=${encodeURIComponent(token)}` : "";
+  const wsUrl = `${protocol}//${window.location.host}/api/ws/telemetry${query}`;
   const terminal = document.getElementById("liveTerminalFeed");
 
+  let ws;
   try {
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "SECURITY_EVENT") {
-          const e = msg.data;
-          const line = document.createElement("div");
-          line.className = `log-line ${e.severity}`;
-          line.innerText = `[${e.time}] [${e.module}] [${e.severity}] ${e.description}`;
-          terminal.prepend(line);
-
-          if (terminal.children.length > 60) {
-            terminal.removeChild(terminal.lastChild);
-          }
-
-          loadDashboardData();
-        }
-      } catch (err) {
-        console.error("Error al procesar mensaje de WebSocket:", err);
-      }
-    };
-
-    ws.onerror = () => {
-      console.log("WebSocket en modo fallback; datos por polling REST.");
-    };
+    ws = new WebSocket(wsUrl);
   } catch (e) {
     console.log("WebSockets no soportados en este navegador.");
+    return;
   }
+
+  ws.onopen = () => {
+    wsReconnectDelay = 2000;
+  };
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "SECURITY_EVENT" && terminal) {
+        const e = msg.data;
+        const line = document.createElement("div");
+        line.className = `log-line ${String(e.severity).replace(/[^A-Z]/g, "")}`;
+        line.innerText = `[${e.time}] [${e.module}] [${e.severity}] ${e.description}`;
+        terminal.prepend(line);
+
+        while (terminal.children.length > 60) {
+          terminal.removeChild(terminal.lastChild);
+        }
+
+        scheduleDashboardRefresh();
+      }
+    } catch (err) {
+      console.error("Error al procesar mensaje de WebSocket:", err);
+    }
+  };
+
+  ws.onclose = () => {
+    // Reconexión con retroceso exponencial (máx. 30 s)
+    setTimeout(initWebSocket, wsReconnectDelay);
+    wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000);
+  };
+
+  ws.onerror = () => {
+    console.log("WebSocket en modo fallback; datos por polling REST.");
+  };
 }
 
 // --- Datos del Panel Principal ---
 async function loadDashboardData() {
   try {
-    const res = await fetch("/api/overview");
-    if (!res.ok) return;
-    const data = await res.json();
-
+    const data = await apiFetch("/api/overview");
     document.getElementById("metricShieldStatus").innerText = data.correlation.infinity_shield_status;
     document.getElementById("metricEventsCount").innerText = data.correlation.total_security_events;
     document.getElementById("metricThreatsCount").innerText = data.correlation.active_threats;
@@ -135,8 +237,7 @@ async function loadShieldRules() {
   table.innerHTML = "<tr><td colspan='7'>Consultando reglas en base de datos...</td></tr>";
 
   try {
-    const res = await fetch("/api/infinity/rules");
-    const rules = await res.json();
+    const rules = await apiFetch("/api/infinity/rules");
 
     if (!rules || rules.length === 0) {
       table.innerHTML = "<tr><td colspan='7' style='color:var(--text-muted);'>No hay bloqueos activos. Infinity Shield está supervisando solicitudes.</td></tr>";
@@ -145,37 +246,45 @@ async function loadShieldRules() {
 
     table.innerHTML = rules.map(r => `
       <tr>
-        <td><strong>#${r.id}</strong></td>
-        <td><code>${r.target}</code></td>
-        <td><span class="pill LOW">${r.type}</span></td>
-        <td><span class="pill CRITICAL">${r.action}</span></td>
-        <td>${r.hits}</td>
-        <td>${r.expires_at}</td>
-        <td><button class="btn btn-red" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="handleUnbanIp('${r.target}')">Desbloquear</button></td>
+        <td><strong>#${escapeHtml(r.id)}</strong></td>
+        <td><code>${escapeHtml(r.target)}</code></td>
+        <td><span class="pill LOW">${escapeHtml(r.type)}</span></td>
+        <td><span class="pill CRITICAL">${escapeHtml(r.action)}</span></td>
+        <td>${escapeHtml(r.hits)}</td>
+        <td>${escapeHtml(r.expires_at)}</td>
+        <td><button class="btn btn-red unban-btn" style="padding:0.3rem 0.6rem;font-size:0.75rem;" data-ip="${escapeHtml(r.target)}">Desbloquear</button></td>
       </tr>
     `).join("");
+
+    table.querySelectorAll(".unban-btn").forEach(btn => {
+      btn.addEventListener("click", () => handleUnbanIp(btn.getAttribute("data-ip")));
+    });
   } catch (e) {
-    table.innerHTML = `<tr><td colspan='7' style='color:var(--gojo-red);'>Error al cargar reglas: ${e}</td></tr>`;
+    table.innerHTML = `<tr><td colspan='7' style='color:var(--gojo-red);'>Error al cargar reglas: ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
 async function handleBanIp() {
-  const ip = document.getElementById("banIpInput").value.trim();
+  const input = document.getElementById("banIpInput");
+  const ip = input.value.trim();
   if (!ip) return alert("Por favor ingresa una dirección IP válida.");
 
-  await fetch("/api/infinity/ban", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ip_address: ip, reason: "Bloqueo manual desde el Panel", duration_minutes: 60 })
-  });
-
-  document.getElementById("banIpInput").value = "";
-  alert(`La dirección IP ${ip} ha sido bloqueada por 60 minutos.`);
+  try {
+    await postJson("/api/infinity/ban", { ip_address: ip, reason: "Bloqueo manual desde el Panel", duration_minutes: 60 });
+    input.value = "";
+    alert(`La dirección IP ${ip} ha sido bloqueada por 60 minutos.`);
+  } catch (e) {
+    alert(`No se pudo bloquear la IP: ${e.message}`);
+  }
   loadShieldRules();
 }
 
 async function handleUnbanIp(ip) {
-  await fetch(`/api/infinity/unban/${ip}`, { method: "POST" });
+  try {
+    await apiFetch(`/api/infinity/unban/${encodeURIComponent(ip)}`, { method: "POST" });
+  } catch (e) {
+    alert(`No se pudo desbloquear la IP: ${e.message}`);
+  }
   loadShieldRules();
 }
 
@@ -183,15 +292,10 @@ async function handleUnbanIp(ip) {
 async function handleBlueScan() {
   const target = document.getElementById("blueTargetInput").value.trim() || "127.0.0.1";
   const table = document.getElementById("blueResultsTable");
-  table.innerHTML = `<tr><td colspan='5' style='color:var(--gojo-cyan);'>Escaneando puertos TCP en ${target} (espera un momento)...</td></tr>`;
+  table.innerHTML = `<tr><td colspan='5' style='color:var(--gojo-cyan);'>Escaneando puertos TCP en ${escapeHtml(target)} (espera un momento)...</td></tr>`;
 
   try {
-    const res = await fetch("/api/blue/scan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target: target })
-    });
-    const data = await res.json();
+    const data = await postJson("/api/blue/scan", { target: target });
 
     if (!data.open_ports || data.open_ports.length === 0) {
       table.innerHTML = "<tr><td colspan='5' style='color:var(--text-muted);'>No se detectaron puertos TCP abiertos en este objetivo.</td></tr>";
@@ -200,15 +304,15 @@ async function handleBlueScan() {
 
     table.innerHTML = data.open_ports.map(p => `
       <tr>
-        <td><strong>${p.port}</strong></td>
-        <td>${p.protocol.toUpperCase()}</td>
+        <td><strong>${escapeHtml(p.port)}</strong></td>
+        <td>${escapeHtml(String(p.protocol).toUpperCase())}</td>
         <td><span class="pill OPEN">ABIERTO</span></td>
-        <td><strong>${p.service}</strong></td>
-        <td><code>${p.banner || "Sin banner"}</code></td>
+        <td><strong>${escapeHtml(p.service)}</strong></td>
+        <td><code>${escapeHtml(p.banner || "Sin banner")}</code></td>
       </tr>
     `).join("");
   } catch (e) {
-    table.innerHTML = `<tr><td colspan='5' style='color:var(--gojo-red);'>Error durante el escaneo: ${e}</td></tr>`;
+    table.innerHTML = `<tr><td colspan='5' style='color:var(--gojo-red);'>Error durante el escaneo: ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -217,30 +321,28 @@ async function handlePasswordAudit() {
   const pw = document.getElementById("redPasswordInput").value;
   if (!pw) return alert("Por favor introduce una contraseña para evaluar.");
 
-  const res = await fetch("/api/red/audit-password", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: pw })
-  });
-  const data = await res.json();
+  const out = document.getElementById("passwordAuditResult");
+  try {
+    const data = await postJson("/api/red/audit-password", { password: pw });
+    const isStrong = data.strength === "STRONG" || data.strength === "VERY_STRONG";
+    const color = isStrong ? "var(--gojo-green)" : "var(--gojo-red)";
 
-  const isStrong = data.strength === "STRONG" || data.strength === "VERY_STRONG";
-  const color = isStrong ? "var(--gojo-green)" : "var(--gojo-red)";
-
-  document.getElementById("passwordAuditResult").innerHTML = `
-    <div style="background:rgba(0,0,0,0.4); padding:1rem 1.25rem; border-radius:8px; border:1px solid ${color};">
-      <div style="margin-bottom:0.4rem;">Longitud: <strong>${data.length} caracteres</strong> | Entropía Matemática: <strong>${data.entropy_bits} bits</strong></div>
-      <div style="margin-bottom:0.4rem;">Nivel de Fortaleza: <span class="pill ${isStrong ? 'OPEN' : 'CRITICAL'}">${data.strength}</span></div>
-      <div>Apta para Cuentas Administrativas: <strong>${data.is_acceptable_for_admin ? "[APROBADA]" : "[RECHAZADA] (Muy Débil)"}</strong></div>
-    </div>
-  `;
+    out.innerHTML = `
+      <div style="background:rgba(0,0,0,0.4); padding:1rem 1.25rem; border-radius:8px; border:1px solid ${color};">
+        <div style="margin-bottom:0.4rem;">Longitud: <strong>${escapeHtml(data.length)} caracteres</strong> | Entropía Matemática: <strong>${escapeHtml(data.entropy_bits)} bits</strong></div>
+        <div style="margin-bottom:0.4rem;">Nivel de Fortaleza: <span class="pill ${isStrong ? "OPEN" : "CRITICAL"}">${escapeHtml(data.strength)}</span></div>
+        <div>Apta para Cuentas Administrativas: <strong>${data.is_acceptable_for_admin ? "[APROBADA]" : "[RECHAZADA] (Muy Débil)"}</strong></div>
+      </div>
+    `;
+  } catch (e) {
+    out.innerHTML = `<div style="color:var(--gojo-red);">Error: ${escapeHtml(e.message)}</div>`;
+  }
 }
 
 // --- Purple Intelligence ---
 async function loadPurpleRisk() {
   try {
-    const res = await fetch("/api/purple/risk");
-    const data = await res.json();
+    const data = await apiFetch("/api/purple/risk");
     document.getElementById("purpleRiskScore").innerText = `${data.risk_index} / 100`;
     const levelEl = document.getElementById("purpleRiskLevel");
     levelEl.innerText = `Nivel de Riesgo Global: ${data.risk_level}`;
@@ -252,15 +354,14 @@ async function loadPurpleRisk() {
 
 async function handleGenerateReport() {
   try {
-    const res = await fetch("/api/purple/report", { method: "POST" });
-    const data = await res.json();
+    const data = await apiFetch("/api/purple/report", { method: "POST" });
     alert(`[+] Informe Generado Exitosamente:\n${data.report_title}\nGuardado en: ${data.report_path}`);
     const out = document.getElementById("reportStatusOutput");
     if (out) {
-      out.innerHTML = `<div class="guide-box">Último informe: <strong>${data.report_title}</strong> listo en el disco local.</div>`;
+      out.innerHTML = `<div class="guide-box">Último informe: <strong>${escapeHtml(data.report_title)}</strong> listo en el disco local.</div>`;
     }
   } catch (e) {
-    alert(`Error al generar informe: ${e}`);
+    alert(`Error al generar informe: ${e.message}`);
   }
 }
 
@@ -273,24 +374,18 @@ async function handleAskSixEyes() {
   box.innerText = "Analizando con la sabiduría de Six Eyes (Modo Offline)...";
 
   try {
-    const res = await fetch("/api/sixeyes/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question: query })
-    });
-    const data = await res.json();
+    const data = await postJson("/api/sixeyes/ask", { question: query });
     box.innerText = data.answer;
   } catch (e) {
-    box.innerText = `Error: ${e}`;
+    box.innerText = `Error: ${e.message}`;
   }
 }
 
 // --- IP Intelligence ---
 async function loadIpData() {
+  const table = document.getElementById("ipHistoryTable");
   try {
-    const res = await fetch("/api/ip/history");
-    const data = await res.json();
-    const table = document.getElementById("ipHistoryTable");
+    const data = await apiFetch("/api/ip/history");
 
     if (!data || data.length === 0) {
       table.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);'>No hay visitas registradas aún.</td></tr>";
@@ -299,14 +394,14 @@ async function loadIpData() {
 
     table.innerHTML = data.map(h => `
       <tr>
-        <td><code>${h.ip}</code></td>
-        <td>${h.path}</td>
-        <td><span class="pill LOW">${h.consent}</span></td>
-        <td>${h.timestamp}</td>
+        <td><code>${escapeHtml(h.ip)}</code></td>
+        <td>${escapeHtml(h.path)}</td>
+        <td><span class="pill LOW">${escapeHtml(h.consent)}</span></td>
+        <td>${escapeHtml(h.timestamp)}</td>
       </tr>
     `).join("");
   } catch (e) {
-    console.error(e);
+    table.innerHTML = `<tr><td colspan='4' style='color:var(--gojo-red);'>Error: ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -318,25 +413,24 @@ async function handleIpLookup() {
   out.innerHTML = "<div style='color:var(--gojo-cyan);'>Consultando datos de la IP...</div>";
 
   try {
-    const res = await fetch(`/api/ip/lookup?ip=${encodeURIComponent(ip)}`);
-    const data = await res.json();
+    const data = await apiFetch(`/api/ip/lookup?ip=${encodeURIComponent(ip)}`);
 
     if (data.error) {
-      out.innerHTML = `<div style="color:var(--gojo-red);">${data.error}</div>`;
+      out.innerHTML = `<div style="color:var(--gojo-red);">${escapeHtml(data.error)}</div>`;
       return;
     }
 
     out.innerHTML = `
       <div style="background:rgba(0,0,0,0.5); padding:1.25rem; border-radius:8px; border:1px solid var(--border-color); font-family:var(--font-mono); font-size:0.88rem; line-height:1.6;">
-        <div><strong>IP:</strong> ${data.ip} (IPv${data.version}) | <strong>Red Privada:</strong> ${data.is_private ? "Sí (Local)" : "No (Pública)"}</div>
-        <div><strong>DNS Inverso (PTR):</strong> ${data.reverse_dns || "Ninguno"}</div>
-        <div><strong>Ubicación Aproximada:</strong> ${data.geolocation.country || "Desconocido"} - ${data.geolocation.city || "Ciudad Desconocida"}</div>
-        <div><strong>ASN / Proveedor:</strong> ${data.network.asn || "N/A"} (${data.network.organization || "N/A"})</div>
-        <div style="color:var(--text-muted); font-size:0.75rem; margin-top:0.6rem;">* ${data.geolocation.disclaimer}</div>
+        <div><strong>IP:</strong> ${escapeHtml(data.ip)} (IPv${escapeHtml(data.version)}) | <strong>Red Privada:</strong> ${data.is_private ? "Sí (Local)" : "No (Pública)"}</div>
+        <div><strong>DNS Inverso (PTR):</strong> ${escapeHtml(data.reverse_dns || "Ninguno")}</div>
+        <div><strong>Ubicación Aproximada:</strong> ${escapeHtml(data.geolocation.country || "Desconocido")} - ${escapeHtml(data.geolocation.city || "Ciudad Desconocida")}</div>
+        <div><strong>ASN / Proveedor:</strong> ${escapeHtml(data.network.asn || "N/A")} (${escapeHtml(data.network.organization || "N/A")})</div>
+        <div style="color:var(--text-muted); font-size:0.75rem; margin-top:0.6rem;">* ${escapeHtml(data.geolocation.disclaimer)}</div>
       </div>
     `;
   } catch (e) {
-    out.innerText = `Error: ${e}`;
+    out.innerText = `Error: ${e.message}`;
   }
 }
 
@@ -344,8 +438,7 @@ async function handleIpLookup() {
 async function loadVulns() {
   const table = document.getElementById("vulnTable");
   try {
-    const res = await fetch("/api/vulnerabilities");
-    const vulns = await res.json();
+    const vulns = await apiFetch("/api/vulnerabilities");
 
     if (!vulns || vulns.length === 0) {
       table.innerHTML = "<tr><td colspan='6' style='color:var(--gojo-green); font-weight:600;'>Cero vulnerabilidades pendientes. La postura de seguridad es óptima.</td></tr>";
@@ -354,16 +447,16 @@ async function loadVulns() {
 
     table.innerHTML = vulns.map(v => `
       <tr>
-        <td><span class="pill ${v.severity}">${v.severity}</span></td>
-        <td>${v.title}</td>
-        <td><code>${v.cve_id || "N/A"}</code></td>
-        <td><strong>${v.cvss_score}</strong></td>
-        <td>${v.status}</td>
-        <td><code>${v.target}</code></td>
+        <td><span class="pill ${escapeHtml(v.severity)}">${escapeHtml(v.severity)}</span></td>
+        <td>${escapeHtml(v.title)}</td>
+        <td><code>${escapeHtml(v.cve_id || "N/A")}</code></td>
+        <td><strong>${escapeHtml(v.cvss_score)}</strong></td>
+        <td>${escapeHtml(v.status)}</td>
+        <td><code>${escapeHtml(v.target)}</code></td>
       </tr>
     `).join("");
   } catch (e) {
-    table.innerHTML = `<tr><td colspan='6' style='color:var(--gojo-red);'>Error al cargar vulnerabilidades: ${e}</td></tr>`;
+    table.innerHTML = `<tr><td colspan='6' style='color:var(--gojo-red);'>Error al cargar vulnerabilidades: ${escapeHtml(e.message)}</td></tr>`;
   }
 }
 
@@ -391,22 +484,18 @@ async function handleRunLabSimulation() {
   out.innerHTML = "<div style='color:var(--gojo-yellow);'>Ejecutando simulación en memoria...</div>";
 
   try {
-    const res = await fetch("/api/lab/simulate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        scenario_id: scenario, 
-        input_data: payload,
-        password_attempt: scenario === "auth_lab" ? "password123" : null
-      })
+    const data = await postJson("/api/lab/simulate", {
+      scenario_id: scenario,
+      input_data: payload,
+      password_attempt: scenario === "auth_lab" ? "password123" : null
     });
-    const data = await res.json();
+    // El resultado puede contener payloads XSS: se muestra siempre como texto escapado.
     out.innerHTML = `
       <div style="color:var(--gojo-green); font-weight:700; margin-bottom:0.5rem;">[+] Simulación Completada Exitosamente</div>
-      <pre style="white-space:pre-wrap; font-family:var(--font-mono); font-size:0.85rem; color:#f8fafc;">${JSON.stringify(data, null, 2)}</pre>
+      <pre style="white-space:pre-wrap; font-family:var(--font-mono); font-size:0.85rem; color:#f8fafc;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>
     `;
   } catch (e) {
-    out.innerHTML = `<div style="color:var(--gojo-red);">Fallo en la simulación: ${e}</div>`;
+    out.innerHTML = `<div style="color:var(--gojo-red);">Fallo en la simulación: ${escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -416,24 +505,23 @@ async function loadNetworkDiagnostics() {
   out.innerHTML = "<div style='color:var(--gojo-cyan);'>Inspeccionando sockets de red...</div>";
 
   try {
-    const res = await fetch("/api/network/diagnostics");
-    const data = await res.json();
+    const data = await apiFetch("/api/network/diagnostics");
     out.innerHTML = `
       <div style="margin-bottom:1.25rem;">
-        <strong>Dirección IP Local de Salida:</strong> <code style="font-size:1.1rem; color:var(--gojo-cyan);">${data.primary_local_ip}</code>
+        <strong>Dirección IP Local de Salida:</strong> <code style="font-size:1.1rem; color:var(--gojo-cyan);">${escapeHtml(data.primary_local_ip)}</code>
       </div>
       <div style="font-weight:600; margin-bottom:0.5rem;">Interfaces Detectadas en el Dispositivo:</div>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.75rem;">
         ${data.interfaces.map(i => `
           <div style="background:rgba(0,0,0,0.4); padding:0.9rem; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
-            <div>Interfaz: <strong style="color:var(--gojo-cyan);">${i.interface}</strong> ${i.is_up ? '<span class="pill OPEN">ACTIVA</span>' : '<span class="pill MEDIUM">INACTIVA</span>'}</div>
-            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.35rem;">IPv4: ${i.ipv4.map(a => a.address).join(", ") || "Ninguna"}</div>
+            <div>Interfaz: <strong style="color:var(--gojo-cyan);">${escapeHtml(i.interface)}</strong> ${i.is_up ? '<span class="pill OPEN">ACTIVA</span>' : '<span class="pill MEDIUM">INACTIVA</span>'}</div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.35rem;">IPv4: ${escapeHtml(i.ipv4.map(a => a.address).join(", ") || "Ninguna")}</div>
           </div>
         `).join("")}
       </div>
     `;
   } catch (e) {
-    out.innerText = `Error: ${e}`;
+    out.innerText = `Error: ${e.message}`;
   }
 }
 
@@ -475,9 +563,11 @@ async function triggerHollowPurple() {
   const target = document.getElementById("hollowTargetInput").value.trim() || "127.0.0.1";
   const statusEl = document.getElementById("hollowStatusText");
   const canvas = document.getElementById("hollowCanvas");
+  if (!hollowCtx) initHollowCanvas();
   const w = canvas.width;
   const h = canvas.height;
 
+  if (hollowAnimId) cancelAnimationFrame(hollowAnimId);
   statusEl.innerText = "Fase 1: AZUL (Reconocimiento del objetivo)...";
 
   let progress = 0;
@@ -507,12 +597,11 @@ async function triggerHollowPurple() {
     if (progress < 1) {
       hollowAnimId = requestAnimationFrame(animateConvergence);
     } else {
-      explodePurple(w, h);
+      explodePurple();
     }
   }
 
-  function explodePurple(w, h) {
-    statusEl.innerText = "CONVERGENCIA DEFINITIVA: HOLLOW PURPLE (虚式「茈」) DESATADO";
+  function explodePurple() {
     let radius = 35;
     function pulsePurple() {
       radius += 4;
@@ -526,7 +615,7 @@ async function triggerHollowPurple() {
       hollowCtx.fill();
 
       if (radius < 130) {
-        requestAnimationFrame(pulsePurple);
+        hollowAnimId = requestAnimationFrame(pulsePurple);
       }
     }
     pulsePurple();
@@ -536,14 +625,11 @@ async function triggerHollowPurple() {
 
   // Ejecución del API
   try {
-    const res = await fetch("/api/hollow-purple/execute", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target: target })
-    });
-    const data = await res.json();
+    const data = await postJson("/api/hollow-purple/execute", { target: target });
     statusEl.innerText = `[+] HOLLOW PURPLE COMPLETADO — Riesgo: ${data.phases.purple_correlation.risk_index.risk_level} | Postura: ${data.phases.six_eyes_synthesis.posture_assessment}`;
   } catch (e) {
-    statusEl.innerText = `Error durante la ejecución: ${e}`;
+    if (hollowAnimId) cancelAnimationFrame(hollowAnimId);
+    drawIdleOrbs(w, h);
+    statusEl.innerText = `Error durante la ejecución: ${e.message}`;
   }
 }

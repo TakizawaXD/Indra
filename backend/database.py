@@ -4,15 +4,12 @@ SQLAlchemy ORM Models & SQLite Engine Persistence.
 Implements all 21 core entities defined in Section 13.
 """
 
-from datetime import datetime
-from typing import Optional, Any
-import json
-
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Text, Boolean, Float,
-    DateTime, ForeignKey, Index, Enum as SQLEnum
+    create_engine, event, Column, Integer, String, Text, Boolean, Float,
+    DateTime, ForeignKey
 )
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship, Session
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from core.timeutils import utcnow
 from core.config import settings
 from core.logger import logger
 
@@ -29,7 +26,7 @@ class User(Base):
     password_hash = Column(String(256), nullable=False)
     role = Column(String(32), default="sorcerer_operator", nullable=False)  # admin, analyst, operator
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)
 
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
@@ -43,7 +40,7 @@ class UserSession(Base):
     ip_address = Column(String(64), nullable=False)
     user_agent = Column(String(256), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=False)
 
     user = relationship("User", back_populates="sessions")
@@ -57,7 +54,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(128), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
 
     targets = relationship("AuthorizedTarget", back_populates="project", cascade="all, delete-orphan")
@@ -73,7 +70,7 @@ class AuthorizedTarget(Base):
     target_type = Column(String(32), nullable=False)  # "ipv4", "ipv6", "cidr", "domain"
     authorization_notes = Column(Text, nullable=False)  # Justification / authorization proof
     verified_owner = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     project = relationship("Project", back_populates="targets")
 
@@ -88,7 +85,7 @@ class NetworkScan(Base):
     scan_type = Column(String(64), nullable=False)  # "ping_sweep", "tcp_connect", "service_recon"
     target = Column(String(256), nullable=False)
     status = Column(String(32), default="pending", nullable=False)  # pending, running, completed, failed
-    start_time = Column(DateTime, default=datetime.utcnow, nullable=False)
+    start_time = Column(DateTime, default=utcnow, nullable=False)
     end_time = Column(DateTime, nullable=True)
     summary = Column(Text, nullable=True)
 
@@ -105,7 +102,7 @@ class Host(Base):
     os_hint = Column(String(128), nullable=True)
     status = Column(String(32), default="up", nullable=False)  # up, down
     response_time_ms = Column(Float, nullable=True)
-    discovered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    discovered_at = Column(DateTime, default=utcnow, nullable=False)
 
     scan = relationship("NetworkScan", back_populates="hosts")
     ports = relationship("Port", back_populates="host", cascade="all, delete-orphan")
@@ -121,7 +118,7 @@ class Port(Base):
     service_name = Column(String(64), nullable=True)
     banner = Column(Text, nullable=True)
     version = Column(String(128), nullable=True)
-    discovered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    discovered_at = Column(DateTime, default=utcnow, nullable=False)
 
     host = relationship("Host", back_populates="ports")
 
@@ -134,7 +131,7 @@ class Domain(Base):
     whois_info = Column(Text, nullable=True)
     ssl_issuer = Column(String(256), nullable=True)
     ssl_expiry = Column(DateTime, nullable=True)
-    analyzed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    analyzed_at = Column(DateTime, default=utcnow, nullable=False)
 
 # -----------------------------------------------------------------------------
 # 4. IP RECORDS, HISTORY & REPUTATION (IP Intelligence)
@@ -152,8 +149,8 @@ class IPRecord(Base):
     organization = Column(String(128), nullable=True)
     reverse_dns = Column(String(256), nullable=True)
     threat_score = Column(Integer, default=0, nullable=False)  # 0 to 100
-    first_seen = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_seen = Column(DateTime, default=datetime.utcnow, nullable=False)
+    first_seen = Column(DateTime, default=utcnow, nullable=False)
+    last_seen = Column(DateTime, default=utcnow, nullable=False)
 
     history = relationship("IPHistory", back_populates="ip_record", cascade="all, delete-orphan")
     reputation_entries = relationship("IPReputation", back_populates="ip_record", cascade="all, delete-orphan")
@@ -167,7 +164,7 @@ class IPHistory(Base):
     path_accessed = Column(String(256), nullable=True)
     user_agent = Column(String(256), nullable=True)
     consent_status = Column(String(32), default="informed_service_visit", nullable=False)
-    recorded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    recorded_at = Column(DateTime, default=utcnow, nullable=False)
 
     ip_record = relationship("IPRecord", back_populates="history")
 
@@ -179,7 +176,7 @@ class IPReputation(Base):
     source = Column(String(64), nullable=False)  # AbuseIPDB, LocalFilter, DNSBL
     indicator = Column(String(128), nullable=False)
     reputation_score = Column(Float, default=0.0, nullable=False)
-    checked_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    checked_at = Column(DateTime, default=utcnow, nullable=False)
 
     ip_record = relationship("IPRecord", back_populates="reputation_entries")
 
@@ -199,7 +196,7 @@ class Vulnerability(Base):
     affected_component = Column(String(128), nullable=True)
     description = Column(Text, nullable=False)
     mitigation = Column(Text, nullable=True)
-    discovered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    discovered_at = Column(DateTime, default=utcnow, nullable=False)
     remediated_at = Column(DateTime, nullable=True)
 
 class CVERecord(Base):
@@ -228,7 +225,7 @@ class SecurityEvent(Base):
     target = Column(String(256), nullable=True)
     evidence_json = Column(Text, nullable=True)
     action_taken = Column(String(128), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=utcnow, nullable=False, index=True)
 
 class Threat(Base):
     __tablename__ = "threats"
@@ -239,7 +236,7 @@ class Threat(Base):
     severity = Column(String(32), default="MEDIUM", nullable=False)
     status = Column(String(32), default="active", nullable=False)  # active, mitigated, dismissed
     mitigation_applied = Column(String(128), nullable=True)
-    detected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    detected_at = Column(DateTime, default=utcnow, nullable=False)
 
     incidents = relationship("Incident", back_populates="threat")
 
@@ -252,7 +249,7 @@ class Incident(Base):
     severity = Column(String(32), default="HIGH", nullable=False)
     status = Column(String(32), default="open", nullable=False)  # open, investigating, contained, resolved
     containment_action = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     resolved_at = Column(DateTime, nullable=True)
 
     threat = relationship("Threat", back_populates="incidents")
@@ -270,7 +267,7 @@ class FirewallRule(Base):
     action = Column(String(32), default="DENY", nullable=False)  # ALLOW, DENY, CHALLENGE
     is_active = Column(Boolean, default=True, nullable=False)
     expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     hits = Column(Integer, default=0, nullable=False)
 
 # -----------------------------------------------------------------------------
@@ -285,7 +282,7 @@ class AuditLog(Base):
     resource = Column(String(256), nullable=False)
     details = Column(Text, nullable=True)
     ip_address = Column(String(64), nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=utcnow, nullable=False)
 
     user = relationship("User", back_populates="audit_logs")
 
@@ -298,7 +295,7 @@ class LaboratoryRun(Base):
     simulated_target = Column(String(256), nullable=False)
     payload_count = Column(Integer, default=0, nullable=False)
     findings_json = Column(Text, nullable=True)
-    executed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    executed_at = Column(DateTime, default=utcnow, nullable=False)
 
 class SecurityReport(Base):
     __tablename__ = "reports"
@@ -309,7 +306,7 @@ class SecurityReport(Base):
     report_type = Column(String(64), nullable=False)  # "executive", "technical", "network", "purple_audit"
     file_path = Column(String(512), nullable=False)
     summary_json = Column(Text, nullable=True)
-    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    generated_at = Column(DateTime, default=utcnow, nullable=False)
 
     project = relationship("Project", back_populates="reports")
 
@@ -320,16 +317,32 @@ class SystemConfiguration(Base):
     key = Column(String(128), unique=True, nullable=False, index=True)
     value = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
 # -----------------------------------------------------------------------------
 # ENGINE & SESSION PROVIDERS
 # -----------------------------------------------------------------------------
+_IS_SQLITE = settings.DATABASE_URL.startswith("sqlite")
+
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
+    connect_args={"check_same_thread": False, "timeout": 15} if _IS_SQLITE else {},
+    pool_pre_ping=True,
     echo=False
 )
+
+if _IS_SQLITE:
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragmas(dbapi_connection, _record):
+        """WAL + busy timeout: lets the web server and the CLI write concurrently."""
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=15000")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+        finally:
+            cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

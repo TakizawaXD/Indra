@@ -3,11 +3,9 @@ GOJO INFINITY SECURITY ∞ — IP MONITOR & CHANGE DETECTION
 Monitors configured assets and local IPs for DNS or address drifts.
 """
 
-from datetime import datetime
+from core.timeutils import utcnow
 from typing import Dict, Any, List
-from backend.database import SessionLocal, IPRecord
 from core.event_engine import event_bus, EventType, SecurityEventPayload
-from core.logger import logger
 from network.dns import DNSAnalyzer
 
 class IPMonitor:
@@ -24,7 +22,7 @@ class IPMonitor:
             results.append({
                 "domain": domain,
                 "current_ips": current_ips,
-                "checked_at": datetime.utcnow().isoformat()
+                "checked_at": utcnow().isoformat()
             })
 
             event_bus.emit(SecurityEventPayload(

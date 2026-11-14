@@ -6,7 +6,6 @@ Designed for Indra | Architect: Takizawa
 
 import shutil
 import subprocess
-from typing import Optional
 from core.logger import logger
 from core.event_engine import event_bus, EventType, SecurityEventPayload
 

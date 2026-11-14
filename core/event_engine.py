@@ -7,8 +7,11 @@ Connects INFINITY, BLUE, RED, PURPLE and SIX EYES asynchronously.
 import asyncio
 import json
 import uuid
+from collections import deque
 from datetime import datetime
-from typing import Callable, Coroutine, Any, Optional
+from typing import Callable, Any, Optional
+
+from core.timeutils import utcnow
 from pydantic import BaseModel, Field
 
 from core.logger import logger
@@ -41,7 +44,7 @@ class SecurityEventPayload(BaseModel):
     target: Optional[str] = None
     evidence: Optional[dict[str, Any]] = None
     action_taken: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 class EventBus:
     """
@@ -50,7 +53,7 @@ class EventBus:
     def __init__(self):
         self._subscribers: dict[str, list[Callable[[SecurityEventPayload], Any]]] = {}
         self._global_subscribers: list[Callable[[SecurityEventPayload], Any]] = []
-        self._history: list[SecurityEventPayload] = []
+        self._history: deque[SecurityEventPayload] = deque(maxlen=1000)
 
     def subscribe(self, event_type: str, callback: Callable[[SecurityEventPayload], Any]):
         """Subscribe a handler to a specific event type."""
@@ -66,8 +69,6 @@ class EventBus:
         """Synchronous dispatch helper that records and schedules listeners."""
         self._persist_to_database(event)
         self._history.append(event)
-        if len(self._history) > 1000:
-            self._history.pop(0)
 
         # Notify type-specific subscribers
         handlers = self._subscribers.get(event.event_type, [])
@@ -100,8 +101,6 @@ class EventBus:
         """Asynchronous emitter for FastAPI / Asyncio pipelines."""
         self._persist_to_database(event)
         self._history.append(event)
-        if len(self._history) > 1000:
-            self._history.pop(0)
 
         handlers = self._subscribers.get(event.event_type, [])
         for handler in handlers:
@@ -145,7 +144,7 @@ class EventBus:
             logger.error(f"Failed to persist event {event.id} to database: {e}")
 
     def get_recent_events(self, limit: int = 50) -> list[SecurityEventPayload]:
-        return self._history[-limit:]
+        return list(self._history)[-limit:]
 
 # Singleton Event Bus instance
 event_bus = EventBus()

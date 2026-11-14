@@ -40,7 +40,7 @@ fi
 if [ "$IS_TERMUX" = true ]; then
     echo -e "${CYAN}[*] Updating Termux packages and installing dependencies...${NC}"
     pkg update -y || apt-get update -y
-    pkg install -y python git curl wget openssl clang libffi-dev make binutils libxml2 libxslt || true
+    pkg install -y python git curl wget openssl clang libffi make binutils || true
 fi
 
 # 3. Check Python 3
@@ -55,7 +55,14 @@ echo -e "${GREEN}[+] Using $PY_VER at $PY_BIN${NC}"
 
 # 4. Create Directory Hierarchy
 echo -e "${CYAN}[*] Provisioning directory structure...${NC}"
-mkdir -p database logs reports backups quarantine config core techniques/infinity techniques/blue techniques/red techniques/purple techniques/six_eyes network ip_intelligence vulnerability laboratory backend frontend terminal tests
+mkdir -p database logs reports backups quarantine config
+if [ ! -f .env ] && [ -f .env.example ]; then
+    cp .env.example .env
+    echo -e "${YELLOW}[!] Created .env from .env.example — review it before production use.${NC}"
+fi
+if [ ! -f config/license.key ] && [ -z "$INDRA_LICENSE_KEY" ]; then
+    echo -e "${YELLOW}[!] No license key found. Place it in config/license.key or set INDRA_LICENSE_KEY.${NC}"
+fi
 
 # 5. Virtual Environment or Direct Pip Install
 echo -e "${CYAN}[*] Installing verified Python dependencies...${NC}"

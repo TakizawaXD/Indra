@@ -4,13 +4,12 @@ Isolates suspicious or compromised files safely with encrypted metadata
 and enables authorized, reversible restoration.
 """
 
-import os
+from core.timeutils import utcnow
 import shutil
 import hashlib
 import json
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 from core.config import settings
 from core.logger import logger
@@ -56,7 +55,7 @@ class QuarantineVault:
                 hasher.update(chunk)
         file_sha256 = hasher.hexdigest()
 
-        quarantine_id = f"Q_{int(datetime.utcnow().timestamp())}_{file_sha256[:8]}"
+        quarantine_id = f"Q_{int(utcnow().timestamp())}_{file_sha256[:8]}"
         destination = self.vault_dir / f"{quarantine_id}.vault"
 
         # Atomic move or copy & remove
@@ -71,7 +70,7 @@ class QuarantineVault:
             "size_bytes": destination.stat().st_size,
             "reason": reason,
             "operator": operator,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utcnow().isoformat(),
             "status": "quarantined"
         }
         manifest[quarantine_id] = entry
@@ -110,7 +109,7 @@ class QuarantineVault:
 
         entry["status"] = "restored"
         entry["restored_by"] = operator
-        entry["restored_at"] = datetime.utcnow().isoformat()
+        entry["restored_at"] = utcnow().isoformat()
         manifest[quarantine_id] = entry
         self._save_manifest(manifest)
 

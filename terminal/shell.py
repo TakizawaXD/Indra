@@ -22,7 +22,11 @@ COMMANDS_LIST = [
 
 def run_shell():
     # Wake up the engine if not already online
-    engine_runtime.startup()
+    try:
+        engine_runtime.startup()
+    except PermissionError as e:
+        console.print(f"[bold red][-][/bold red] {e}", markup=True, highlight=False)
+        sys.exit(1)
     print_banner()
     console.print("[bold cyan]Bienvenido a INDRA TERMINAL. Escribe [bold white]'help'[/bold white] para ver la matriz de comandos o [bold white]'exit'[/bold white] para salir.[/bold cyan]\n")
 
@@ -67,7 +71,7 @@ def run_shell():
         except EOFError:
             break
         except Exception as e:
-            console.print(f"[bold red][!] Unhandled exception: {e}[/bold red]")
+            console.print(f"[!] Unhandled exception: {e}", style="bold red", markup=False)
 
 if __name__ == "__main__":
     run_shell()

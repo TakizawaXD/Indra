@@ -2,6 +2,14 @@
 Test for Hollow Purple Protocol end-to-end execution.
 """
 
+# --- Test isolation: runtime data (DB, logs, reports) goes to a temporary dir ---
+import os
+import tempfile
+os.environ.setdefault("GOJO_DATA_DIR", tempfile.mkdtemp(prefix="indra_test_"))
+os.environ.setdefault("GOJO_ALLOWED_HOSTS", "testserver,127.0.0.1,localhost")
+os.environ.pop("GOJO_API_TOKEN", None)
+# -----------------------------------------------------------------------------
+
 import unittest
 import asyncio
 from techniques.hollow_purple.protocol import HollowPurpleProtocol

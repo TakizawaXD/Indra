@@ -4,7 +4,6 @@ Provides realistic, safe, isolated cybersecurity testbeds for practice and valid
 No external network calls, completely offline and contained.
 """
 
-from typing import Dict, Any, List
 
 LAB_SCENARIOS = {
     "sqli_lab": {

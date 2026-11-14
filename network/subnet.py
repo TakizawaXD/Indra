@@ -4,6 +4,7 @@ Provides network math, address parsing, IP range generation, and subnetwork part
 """
 
 import ipaddress
+from itertools import islice
 from typing import Dict, Any, List
 
 class SubnetCalculator:
@@ -43,7 +44,7 @@ class SubnetCalculator:
         """Generates list of host IPs up to max_hosts."""
         try:
             network = ipaddress.ip_network(cidr_str.strip(), strict=False)
-            hosts = [str(ip) for ip in network.hosts()]
-            return hosts[:max_hosts]
-        except Exception:
+            # islice avoids materializing huge ranges (a /8 has 16M hosts)
+            return [str(ip) for ip in islice(network.hosts(), max_hosts)]
+        except ValueError:
             return []

@@ -6,16 +6,13 @@ Uncovers, analyzes, and catalogs the authorized attack surface.
 
 import ssl
 import socket
-from datetime import datetime
 from typing import Dict, Any, List, Optional
 import httpx
 
-from core.logger import logger
 from core.permissions import TargetAuthorizer
 from core.event_engine import event_bus, EventType, SecurityEventPayload
 from network.ports import PortScanner
-from network.dns import DNSAnalyzer
-from backend.database import SessionLocal, Host, Port, Domain, NetworkScan
+from backend.database import SessionLocal, Host, Port, NetworkScan
 
 class BlueReconnaissance:
     """

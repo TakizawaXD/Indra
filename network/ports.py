@@ -4,8 +4,6 @@ Asynchronous, non-root TCP Connect scanner optimized for Termux.
 """
 
 import asyncio
-import socket
-from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 COMMON_PORTS = [

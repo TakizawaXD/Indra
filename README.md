@@ -89,17 +89,10 @@ start.bat
 | `pydantic` | `>=2.6.0,<3.0.0` | Validacion | Validacion estricta de esquemas, tipos y payloads de entrada |
 | `pydantic-settings` | `>=2.2.0,<3.0.0` | Configuracion | Carga tipada de variables de entorno y archivos `.env` |
 | `sqlalchemy` | `>=2.0.28,<3.0.0` | Persistencia | Capa ORM para gestion de los 21 modelos de base de datos |
-| `aiosqlite` | `>=0.20.0,<1.0.0` | Base de Datos | Driver asincrono para SQLite local sin bloqueos I/O |
-| `httpx` | `>=0.27.0,<1.0.0` | Red Asincrona | Cliente HTTP para escaneos y auditorias web no intrusivas |
-| `requests` | `>=2.31.0,<3.0.0` | Red Sincrona | Cliente HTTP para validaciones de conectividad y endpoints |
+| `httpx` | `>=0.27.0,<1.0.0` | Red Asincrona | Cliente HTTP para auditorias web no intrusivas y lookups de IP/CVE |
 | `dnspython` | `>=2.6.0,<3.0.0` | Red & DNS | Resolucion DNS de registros A, AAAA, MX, NS, TXT y Reverse PTR |
-| `cryptography` | `>=42.0.5` | Criptografia | Cifrado asimetrico, generacion de claves y proteccion de datos |
-| `bcrypt` | `>=4.1.2` | Hashing | Hashing seguro de contraseñas con sal y derivacion de claves |
-| `pyjwt` | `>=2.8.0` | Seguridad | Creacion, firma y verificacion de tokens de sesion JWT |
 | `rich` | `>=13.7.1` | Terminal UI | Formato estetico, tablas, paneles y colores para la CLI |
-| `prompt-toolkit` | `>=3.0.43` | Terminal CLI | Shell interactiva con autocompletado y gestion de historial |
-| `python-multipart` | `>=0.0.9` | Procesamiento | Parser de peticiones multipart para subida y analisis de archivos |
-| `aiofiles` | `>=23.2.1` | Sistema de Archivos | Operaciones asincronas de lectura/escritura (cuarentena y logs) |
+| `prompt-toolkit` | `>=3.0.43,<4.0.0` | Terminal CLI | Shell interactiva con autocompletado y gestion de historial |
 | `psutil` | `>=5.9.8` | Monitoreo | Diagnostico de hardware, memoria, interfaces y sockets del SO |
 
 ---
@@ -137,9 +130,12 @@ Comandos principales:
 - `infinity status` : Estado del motor de proteccion y lista de IPs bloqueadas.
 - `blue scan <IP>` : Escaneo no intrusivo de puertos TCP autorizados.
 - `red audit pass <password>` : Auditoria de entropia y fortaleza de credenciales.
+- `red audit-methods <url>` : Deteccion de metodos HTTP peligrosos (TRACE/PUT/DELETE) en objetivos autorizados.
+- `vulnerability cve <componente>` : Consulta de la base CVE offline.
+- `lab [list|sqli|xss|auth]` : Laboratorio de practica seguro en memoria.
 - `purple risk` : Calculo de indice de riesgo actual del sistema.
 - `hollow-purple <IP>` : Ejecucion del protocolo de convergencia definitiva.
-- `report generate` : Compilacion de reporte de auditoria ejecutivo y corporativo para Indra.
+- `report generate` / `report list` : Compilacion y listado de reportes ejecutivos (Markdown + HTML imprimible).
 - `exit` : Cierra la sesion de la terminal de forma segura.
 
 ---
@@ -149,11 +145,23 @@ Para corroborar la estabilidad y operatividad de todos los subsistemas:
 ```bash
 python -m unittest discover tests
 ```
-Resultado verificado: `Ran 15 tests in 2.090s - OK` con 100% de aprobacion.
+Las pruebas usan un directorio temporal aislado (no modifican la base de datos ni los reportes reales).
+Resultado verificado: `Ran 25 tests - OK` con 100% de aprobacion.
 
 ---
 
-## 6. CREDITOS Y LICENCIA
+## 6. CONFIGURACION PARA PRODUCCION
+
+1. **Licencia:** coloca la llave en `config/license.key` o define `INDRA_LICENSE_KEY`. La llave nunca se guarda en el codigo (solo su hash SHA-256) ni se sube al repositorio.
+2. **Variables de entorno:** copia `.env.example` a `.env` y ajustalo. `.env` esta excluido de git.
+3. **Exposicion en red:** por defecto el servidor escucha solo en `127.0.0.1`. Si cambias `GOJO_HOST` a `0.0.0.0` (acceso desde la LAN) define **obligatoriamente** `GOJO_API_TOKEN`; el panel lo pedira una vez y lo recordara en el navegador.
+4. **Protecciones activas:** cabecera Host validada (anti DNS-rebinding), sin CORS abierto, CSP en el panel, rate limiting por IP y escape de todo contenido externo (banners, PTR, rutas) en el panel y los reportes. La IP local (`127.0.0.1`) nunca se bloquea automaticamente.
+5. **Datos en tiempo de ejecucion** (`database/`, `logs/`, `reports/`, `backups/`, `quarantine/`) estan excluidos de git. Usa `bash backup.sh` para respaldarlos. `GOJO_DATA_DIR` permite moverlos a otra ruta.
+6. **Salud del servicio:** `GET /health` devuelve el estado del motor.
+
+---
+
+## 7. CREDITOS Y LICENCIA
 - **Organizacion:** Indra
 - **Creador y Arquitecto:** Takizawa
 - **Sistema:** INDRA INFINITY SECURITY

@@ -6,7 +6,6 @@ Provides high-performance, colorized, and thread-safe structured logging.
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 from core.config import settings
 
 LOG_FORMAT = "%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s"
@@ -43,7 +42,11 @@ def setup_logger(name: str = "gojo") -> logging.Logger:
     if logger.handlers:
         return logger
 
-    # Console Handler
+    # Console Handler (UTF-8 so Windows cp1252 consoles do not crash on "∞")
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.DEBUG if settings.DEBUG else logging.INFO)
     console_handler.setFormatter(GojoColorFormatter(LOG_FORMAT, datefmt=DATE_FORMAT))

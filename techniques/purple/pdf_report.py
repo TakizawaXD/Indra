@@ -3,10 +3,11 @@ GOJO INFINITY SECURITY ∞ — CORPORATE EXECUTIVE REPORT GENERATOR (PDF / PRINT
 Generates high-fidelity executive security audits for Indra, signed by Takizawa.
 """
 
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, Any, List
 import hashlib
+from html import escape
+from typing import Dict, Any, Optional
+
+from core.timeutils import utcnow
 
 from core.config import settings
 from core.logger import logger
@@ -16,10 +17,10 @@ class IndraReportGenerator:
     """Compiles printable, PDF-ready executive security audits."""
 
     @classmethod
-    def generate_indra_report(cls, project_name: str = "Auditoría Indra", risk_data: Dict[str, Any] = None) -> str:
+    def generate_indra_report(cls, project_name: str = "Auditoría Indra", risk_data: Optional[Dict[str, Any]] = None) -> str:
         """Generates self-contained HTML/PDF formatted report."""
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-        file_stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        file_stamp = utcnow().strftime("%Y%m%d_%H%M%S")
         output_file = settings.REPORTS_DIR / f"Reporte_Ejecutivo_Indra_{file_stamp}.html"
 
         with SessionLocal() as db:
@@ -28,8 +29,24 @@ class IndraReportGenerator:
             hosts = db.query(Host).all()
             rules = db.query(FirewallRule).filter(FirewallRule.is_active == True).all()
 
-        risk_score = risk_data.get("risk_index", 15) if risk_data else 15
-        risk_level = risk_data.get("risk_level", "BAJO") if risk_data else "BAJO"
+        risk_score = int(risk_data.get("risk_index", 0)) if risk_data else 0
+        risk_level = escape(str(risk_data.get("risk_level", "LOW"))) if risk_data else "LOW"
+        safe_project = escape(project_name)
+
+        def e(value: Any) -> str:
+            return escape("" if value is None else str(value))
+
+        vuln_rows = "".join(
+            f"<tr><td><strong>{e(v.severity)}</strong></td><td>{e(v.title)}</td><td>{e(v.cve_id or 'N/A')}</td>"
+            f"<td>{e(v.cvss_score)}</td><td><code>{e(v.target)}</code></td><td>{e(v.mitigation or 'Mantener parches al día.')}</td></tr>"
+            for v in vulns
+        ) or "<tr><td colspan='6'>No se detectaron vulnerabilidades críticas en la superficie evaluada.</td></tr>"
+
+        rule_rows = "".join(
+            f"<tr><td>#{e(r.id)}</td><td>{e(r.rule_name)}</td><td>{e(r.rule_type)}</td>"
+            f"<td><code>{e(r.target_pattern)}</code></td><td>{e(r.hits)}</td></tr>"
+            for r in rules
+        ) or "<tr><td colspan='5'>Infinity Shield en modo de inspección en tiempo real sin bloqueos permanentes.</td></tr>"
 
         # Generate cryptographic verification seal
         seal_string = f"INDRA_{settings.CREATOR}_{timestamp}_{risk_score}_{len(vulns)}"
@@ -175,7 +192,7 @@ class IndraReportGenerator:
   </div>
 
   <div class="meta-grid">
-    <div class="meta-item"><strong>Proyecto Auditado:</strong> {project_name}</div>
+    <div class="meta-item"><strong>Proyecto Auditado:</strong> {safe_project}</div>
     <div class="meta-item"><strong>Fecha de Emisión:</strong> {timestamp}</div>
     <div class="meta-item"><strong>Nivel de Riesgo Global:</strong> <span class="metric-badge {risk_level}">{risk_level} ({risk_score}/100)</span></div>
     <div class="meta-item"><strong>Plataforma de Ejecución:</strong> Android Termux (Zero-Root Architecture)</div>
@@ -198,7 +215,7 @@ class IndraReportGenerator:
       <tr><th>Gravedad</th><th>Título</th><th>CVE</th><th>CVSS</th><th>Objetivo</th><th>Mitigación Recomendada</th></tr>
     </thead>
     <tbody>
-      {"".join(f"<tr><td><strong>{v.severity}</strong></td><td>{v.title}</td><td>{v.cve_id or 'N/A'}</td><td>{v.cvss_score}</td><td><code>{v.target}</code></td><td>{v.mitigation or 'Mantener parches al día.'}</td></tr>" for v in vulns) if vulns else "<tr><td colspan='6'>No se detectaron vulnerabilidades críticas en la superficie evaluada.</td></tr>"}
+      {vuln_rows}
     </tbody>
   </table>
 
@@ -208,7 +225,7 @@ class IndraReportGenerator:
       <tr><th>ID Regla</th><th>Nombre</th><th>Tipo</th><th>Patrón Objetivo</th><th>Impactos Detenidos</th></tr>
     </thead>
     <tbody>
-      {"".join(f"<tr><td>#{r.id}</td><td>{r.rule_name}</td><td>{r.rule_type}</td><td><code>{r.target_pattern}</code></td><td>{r.hits}</td></tr>" for r in rules) if rules else "<tr><td colspan='5'>Infinity Shield en modo de inspección en tiempo real sin bloqueos permanentes.</td></tr>"}
+      {rule_rows}
     </tbody>
   </table>
 

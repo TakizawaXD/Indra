@@ -1,5 +1,6 @@
 # INDRA INFINITY SECURITY ∞ — REQUIREMENTS
-# Verified for Android Termux Python 3.10+ (arm64/v7a/x86_64)
+# Verified for Python 3.10+ (Android Termux arm64/v7a/x86_64, Linux, Windows)
+# Only packages actually imported by the code are listed.
 
 # Web Framework & High-Performance ASGI
 fastapi>=0.110.0,<1.0.0
@@ -7,25 +8,16 @@ uvicorn[standard]>=0.29.0,<1.0.0
 pydantic>=2.6.0,<3.0.0
 pydantic-settings>=2.2.0,<3.0.0
 
-# Database & Persistence (Pure Python SQLite driver via stdlib, ORM layer)
+# Database & Persistence (SQLite via stdlib driver, ORM layer)
 sqlalchemy>=2.0.28,<3.0.0
-aiosqlite>=0.20.0,<1.0.0
 
-# Networking & HTTP Engine
+# Networking & HTTP Engine (httpx is also used by the FastAPI TestClient)
 httpx>=0.27.0,<1.0.0
-requests>=2.31.0,<3.0.0
 dnspython>=2.6.0,<3.0.0
-
-# Security, Hashing & Cryptography
-cryptography>=42.0.5
-bcrypt>=4.1.2
-pyjwt>=2.8.0
 
 # Terminal UI & CLI Styling
 rich>=13.7.1
-prompt-toolkit>=3.0.43
+prompt-toolkit>=3.0.43,<4.0.0
 
-# Utilities & Multipart Support
-python-multipart>=0.0.9
-aiofiles>=23.2.1
+# System Telemetry
 psutil>=5.9.8

@@ -5,7 +5,7 @@ Inspects local network interfaces, gateways, routing reachability, and public IP
 
 import socket
 import psutil
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 import httpx
 
 class NetworkDiagnostics:

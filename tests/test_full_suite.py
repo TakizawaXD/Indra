@@ -4,18 +4,24 @@ Tests all subsystems: Database, Event Bus, Infinity Shield, Blue Recon,
 Red Operations, Purple Intel, IP Intelligence, Attack Lab, API Endpoints, Reports.
 """
 
+# --- Test isolation: runtime data (DB, logs, reports) goes to a temporary dir ---
+import os
+import tempfile
+os.environ.setdefault("GOJO_DATA_DIR", tempfile.mkdtemp(prefix="indra_test_"))
+os.environ.setdefault("GOJO_ALLOWED_HOSTS", "testserver,127.0.0.1,localhost")
+os.environ.pop("GOJO_API_TOKEN", None)
+# -----------------------------------------------------------------------------
+
 import unittest
 import asyncio
 from fastapi.testclient import TestClient
 
 from backend.main import app
-from backend.database import init_db, SessionLocal, Project, AuthorizedTarget, FirewallRule
-from core.event_engine import event_bus, EventType, SecurityEventPayload
+from backend.database import init_db, SessionLocal, Project, AuthorizedTarget
 from core.permissions import TargetAuthorizer
 from techniques.infinity.shield import infinity_shield
 from techniques.red.operations import red_operations
 from techniques.purple.intelligence import purple_intel
-from techniques.purple.quarantine import quarantine_vault
 from ip_intelligence.lookup import IPLookupEngine
 from ip_intelligence.logger import IPLoggerService
 from laboratory.web_lab import AttackLabSimulator
@@ -152,6 +158,88 @@ class TestGojoComprehensiveSuite(unittest.TestCase):
         # Security Headers on Response
         self.assertEqual(resp.headers.get("X-Infinity-Shield"), "Active")
         self.assertEqual(resp.headers.get("X-Frame-Options"), "DENY")
+
+    # 8. HARDENING REGRESSION TESTS
+    def test_loopback_is_never_banned(self):
+        with self.assertRaises(ValueError):
+            infinity_shield.ban_ip("127.0.0.1")
+        with self.assertRaises(ValueError):
+            infinity_shield.ban_ip("not-an-ip")
+        resp = self.client.post("/api/infinity/ban", json={"ip_address": "127.0.0.1"})
+        self.assertEqual(resp.status_code, 400)
+
+        # Repeated attacks from loopback are blocked but never auto-banned
+        for _ in range(8):
+            infinity_shield.inspect_request("127.0.0.1", "/x", "GET", query_string="q=%27%20OR%201=1--")
+        self.assertFalse(infinity_shield.is_ip_banned("127.0.0.1"))
+
+    def test_ban_endpoint_returns_rule(self):
+        resp = self.client.post("/api/infinity/ban", json={"ip_address": "203.0.113.77", "duration_minutes": 5})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["banned_ip"], "203.0.113.77")
+        self.assertTrue(infinity_shield.unban_ip("203.0.113.77"))
+
+    def test_scan_out_of_scope_is_forbidden(self):
+        resp = self.client.post("/api/blue/scan", json={"target": "198.51.100.200"})
+        self.assertEqual(resp.status_code, 403)
+        resp = self.client.post("/api/blue/scan", json={"target": "127.0.0.1", "ports": [0]})
+        self.assertEqual(resp.status_code, 422)
+
+    def test_cidr_scope_authorizes_subnets(self):
+        with SessionLocal() as db:
+            proj = Project(name="Project_CIDR_Subnet", description="Subnet scope")
+            db.add(proj)
+            db.commit()
+            db.refresh(proj)
+            db.add(AuthorizedTarget(project_id=proj.id, target="10.20.0.0/16", target_type="cidr", authorization_notes="test"))
+            db.commit()
+            try:
+                self.assertTrue(TargetAuthorizer.is_target_authorized("10.20.5.0/24")[0])
+                self.assertFalse(TargetAuthorizer.is_target_authorized("10.21.0.0/24")[0])
+            finally:
+                db.delete(proj)
+                db.commit()
+
+    def test_subnet_host_list_is_bounded(self):
+        hosts = SubnetCalculator.get_host_list("10.0.0.0/8", max_hosts=128)
+        self.assertEqual(len(hosts), 128)
+
+    def test_untrusted_host_header_rejected(self):
+        resp = self.client.get("/api/telemetry", headers={"Host": "evil.example.com"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_no_wildcard_cors(self):
+        resp = self.client.get("/api/telemetry", headers={"Origin": "https://evil.example.com"})
+        self.assertNotIn("access-control-allow-origin", {k.lower() for k in resp.headers.keys()})
+
+    def test_report_html_is_escaped(self):
+        from backend.database import Vulnerability
+        with SessionLocal() as db:
+            v = Vulnerability(title="<script>alert(1)</script>", severity="LOW", target="t", description="d")
+            db.add(v)
+            db.commit()
+            vid = v.id
+        try:
+            report = purple_intel.generate_unified_security_report(project_name="<img src=x>")
+            with open(report["pdf_report_path"], encoding="utf-8") as f:
+                html_doc = f.read()
+            self.assertNotIn("<script>alert(1)</script>", html_doc)
+            self.assertNotIn("<img src=x>", html_doc)
+            self.assertIn("&lt;script&gt;", html_doc)
+        finally:
+            with SessionLocal() as db:
+                db.query(Vulnerability).filter(Vulnerability.id == vid).delete()
+                db.commit()
+
+    def test_api_token_enforced_when_configured(self):
+        from core.config import settings
+        settings.API_TOKEN = "unit-test-token"
+        try:
+            self.assertEqual(self.client.get("/api/telemetry").status_code, 401)
+            ok = self.client.get("/api/telemetry", headers={"X-API-Key": "unit-test-token"})
+            self.assertEqual(ok.status_code, 200)
+        finally:
+            settings.API_TOKEN = ""
 
 if __name__ == "__main__":
     unittest.main()

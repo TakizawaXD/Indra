@@ -4,9 +4,9 @@ Manages system lifecycle, module states, uptime and system telemetry.
 """
 
 import time
+from core.timeutils import utcnow
 import os
 import psutil
-from datetime import datetime
 from typing import Dict, Any
 
 from core.config import settings
@@ -90,7 +90,7 @@ class GojoEngine:
             "memory_usage_mb": memory_usage_mb,
             "cpu_percent": cpu_percent,
             "modules": self.modules,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utcnow().isoformat()
         }
 
 # Global Engine instance

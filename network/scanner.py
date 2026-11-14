@@ -4,10 +4,10 @@ Discovers active hosts within authorized network ranges without requiring root.
 """
 
 import asyncio
-import socket
 import subprocess
+import sys
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from core.logger import logger
 from core.permissions import TargetAuthorizer
@@ -21,7 +21,7 @@ class NetworkScanner:
     PROBE_PORTS = [80, 443, 22, 53, 8080]
 
     @classmethod
-    async def is_host_alive(cls, ip: str, timeout: float = 0.8) -> Tuple_Result := tuple[bool, Optional[float]]:
+    async def is_host_alive(cls, ip: str, timeout: float = 0.8) -> Tuple[bool, Optional[float]]:
         """Tests if host is reachable via fast TCP connect probes on standard ports."""
         t_start = time.time()
         for port in cls.PROBE_PORTS:
@@ -32,14 +32,14 @@ class NetworkScanner:
                 await writer.wait_closed()
                 rtt = round((time.time() - t_start) * 1000, 2)
                 return True, rtt
-            except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
+            except (asyncio.TimeoutError, OSError):
                 continue
 
         # Fallback to local ping command if available
         try:
             res = await asyncio.to_thread(
                 subprocess.run,
-                ["ping", "-c", "1", "-W", "1", ip],
+                ["ping", "-n", "1", "-w", "1000", ip] if sys.platform == "win32" else ["ping", "-c", "1", "-W", "1", ip],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=1.5

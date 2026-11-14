@@ -4,13 +4,11 @@ The cognitive brain coordinating all 4 techniques (Infinity, Blue, Red, Purple)
 and handling intelligent analysis, threat correlation, and Gojo AI guidance.
 """
 
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-import json
+from typing import Dict, Any, Optional
 
 from core.logger import logger
 from core.event_engine import event_bus, EventType, SecurityEventPayload
-from backend.database import SessionLocal, SecurityEvent, Threat, Incident, Vulnerability, Host, Port
+from backend.database import SessionLocal, SecurityEvent, Threat, Incident, Vulnerability
 
 class GojoAIAssistant:
     """

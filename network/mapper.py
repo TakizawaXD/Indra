@@ -4,7 +4,7 @@ Constructs graph representations (nodes & edges) of discovered network elements.
 """
 
 from typing import Dict, Any, List
-from backend.database import SessionLocal, Host, Port, NetworkScan
+from backend.database import SessionLocal, Host
 from network.diagnostics import NetworkDiagnostics
 
 class NetworkMapper:

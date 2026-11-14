@@ -4,14 +4,13 @@ Color Motif: Electric Purple
 Synthesizes offensive Blue/Red insights with defensive Infinity Shield protection.
 """
 
-from datetime import datetime
-from typing import Dict, Any, List, Optional
+from core.timeutils import utcnow
+from typing import Dict, Any
 import json
 
 from core.logger import logger
 from core.config import settings
-from core.event_engine import event_bus, EventType, SecurityEventPayload
-from backend.database import SessionLocal, Vulnerability, Threat, Incident, Host, Port, FirewallRule, SecurityReport
+from backend.database import SessionLocal, Vulnerability, Threat, Host, Port, FirewallRule, SecurityReport
 
 class PurpleIntelligence:
     """
@@ -85,7 +84,7 @@ class PurpleIntelligence:
         report_type: str = "comprehensive"
     ) -> Dict[str, Any]:
         """Compiles a complete audit report and writes Markdown + JSON to `reports/`."""
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = utcnow().strftime("%Y%m%d_%H%M%S")
         report_filename = f"Gojo_Infinity_Report_{timestamp}.md"
         report_path = settings.REPORTS_DIR / report_filename
 
@@ -98,7 +97,7 @@ class PurpleIntelligence:
             rules = db.query(FirewallRule).filter(FirewallRule.is_active == True).all()
 
         report_content = f"""# GOJO INFINITY SECURITY ∞ — EXECUTIVE AUDIT REPORT
-**Generated:** {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}  
+**Generated:** {utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")}  
 **Project:** {project_name}  
 **Creator / Architect:** {settings.CREATOR}  
 **Organization / Target:** {settings.TARGET_ENTITY}  

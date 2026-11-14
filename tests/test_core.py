@@ -2,12 +2,19 @@
 Unit tests for Core Subsystem: Database, Event Bus, Permissions, Orchestrator.
 """
 
+# --- Test isolation: runtime data (DB, logs, reports) goes to a temporary dir ---
+import os
+import tempfile
+os.environ.setdefault("GOJO_DATA_DIR", tempfile.mkdtemp(prefix="indra_test_"))
+os.environ.setdefault("GOJO_ALLOWED_HOSTS", "testserver,127.0.0.1,localhost")
+os.environ.pop("GOJO_API_TOKEN", None)
+# -----------------------------------------------------------------------------
+
 import unittest
-from backend.database import init_db, SessionLocal, Project, AuthorizedTarget, SecurityEvent
+from backend.database import init_db, SessionLocal, Project, AuthorizedTarget
 from core.event_engine import event_bus, EventType, SecurityEventPayload
-from core.permissions import TargetAuthorizer, ScopeViolationError
+from core.permissions import TargetAuthorizer
 from core.orchestrator import six_eyes
-from core.engine import engine_runtime
 
 class TestGojoCore(unittest.TestCase):
 

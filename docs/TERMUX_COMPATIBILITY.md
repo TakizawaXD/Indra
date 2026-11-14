@@ -19,7 +19,7 @@
 Minimal footprint without heavy dependencies:
 ```bash
 pkg update -y
-pkg install -y python git curl wget openssl clang libffi
+pkg install -y python git curl wget openssl clang libffi make binutils
 pip install -r requirements.txt
 ```
 All chosen Python libraries are either pure Python or have pre-built wheels / compile seamlessly in Termux Clang.
