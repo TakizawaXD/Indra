@@ -19,7 +19,7 @@ fi
 
 PY_BIN=$(command -v python3 || command -v python)
 echo "[*] Sincronizando dependencias de Python (requirements.txt)..."
-"$PY_BIN" -m pip install -r requirements.txt --upgrade --quiet
+PY_BIN="$PY_BIN" bash ./install_deps.sh --upgrade
 
 echo "======================================================================"
 echo " [+] INDRA INFINITY SECURITY ACTUALIZADO EXITOSAMENTE"

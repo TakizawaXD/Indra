@@ -40,7 +40,7 @@ fi
 if [ "$IS_TERMUX" = true ]; then
     echo -e "${CYAN}[*] Updating Termux packages and installing dependencies...${NC}"
     pkg update -y || apt-get update -y
-    pkg install -y python python-pip git curl wget openssl clang libffi make binutils python-cryptography python-pydantic || true
+    pkg install -y python python-pip git curl wget openssl clang libffi make binutils || true
 fi
 
 # 3. Check Python 3
@@ -66,13 +66,10 @@ fi
 
 # 5. Dependencies Installation
 echo -e "${CYAN}[*] Installing verified Python dependencies...${NC}"
-if [ "$IS_TERMUX" = true ]; then
-    pkg install -y python-pydantic python-cryptography python-sqlalchemy python-pip || true
-    $PY_BIN -m pip install -r requirements.txt
-else
+if [ "$IS_TERMUX" != true ]; then
     $PY_BIN -m pip install --upgrade pip setuptools wheel
-    $PY_BIN -m pip install -r requirements.txt
 fi
+PY_BIN="$PY_BIN" bash ./install_deps.sh
 
 # 6. Database and Config Initialization Check
 echo -e "${CYAN}[*] Initializing Indra Infinity SQLite Database & Core Schemas...${NC}"
