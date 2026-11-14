@@ -96,9 +96,9 @@ class GojoCommandHandler:
             ["vulnerability [list|cve <query>]", "[bold purple][AMBAS][/bold purple]", "Catálogo de vulnerabilidades y base CVE offline"],
             ["lab [list|sqli|xss|auth]", "[bold red][ATAQUE][/bold red]", "Laboratorio seguro de práctica en memoria (SQLi/XSS)"],
             ["report [generate|list]", "[bold purple][AMBAS][/bold purple]", "Compilación de informes ejecutivos en Markdown y JSON"],
-            ["exit / quit", "[dim]SISTEMA[/dim]", "Salir de Gojo Terminal"]
+            ["exit / quit", "[dim]SISTEMA[/dim]", "Salir de Indra Terminal"]
         ]
-        render_table("MATRIZ DE COMANDOS GOJO INFINITY", ["Comando", "Propósito", "Descripción Operativa"], table_rows, style="cyan")
+        render_table("MATRIZ DE COMANDOS INDRA INFINITY", ["Comando", "Propósito", "Descripción Operativa"], table_rows, style="cyan")
 
     @classmethod
     def cmd_status(cls):
@@ -125,7 +125,7 @@ class GojoCommandHandler:
             render_table("INFINITY SHIELD ACTIVE RULES", ["ID", "Name", "Type", "Target", "Hits", "Expires"], rows, style="cyan")
         elif sub == "ban" and len(args) > 1:
             ip = args[1]
-            infinity_shield.ban_ip(ip, reason="Manual operator ban from Gojo Terminal", duration_minutes=60)
+            infinity_shield.ban_ip(ip, reason="Manual operator ban from Indra Terminal", duration_minutes=60)
             print_success(f"IP {ip} banned for 60 minutes.")
         elif sub == "unban" and len(args) > 1:
             ip = args[1]

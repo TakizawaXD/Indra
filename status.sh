@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  GOJO INFINITY SECURITY ∞ — STATUS CHECK
+#  INDRA INFINITY SECURITY ∞ — STATUS CHECK
+#  Creador: Takizawa | Para: Indra
 # ==============================================================================
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PID_FILE="$PROJECT_DIR/logs/gojo.pid"
+PID_FILE="$PROJECT_DIR/logs/indra.pid"
+OLD_PID_FILE="$PROJECT_DIR/logs/gojo.pid"
+if [ -f "$OLD_PID_FILE" ] && [ ! -f "$PID_FILE" ]; then
+    PID_FILE="$OLD_PID_FILE"
+fi
+
 DB_FILE="$PROJECT_DIR/database/gojo_infinity.db"
 
-echo "=== GOJO INFINITY SECURITY ∞ STATUS ==="
+echo "=== INDRA INFINITY SECURITY ∞ STATUS ==="
 
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")

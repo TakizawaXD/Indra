@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe Ejecutivo de Seguridad — Indra</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      color: #1e293b;
+      line-height: 1.6;
+      background: #ffffff;
+      padding: 2rem;
+    }
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid #0051ff;
+      padding-bottom: 1rem;
+      margin-bottom: 2rem;
+    }
+    .corp-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.5px;
+    }
+    .corp-subtitle {
+      font-size: 0.9rem;
+      color: #0051ff;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 1.25rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+    .meta-item strong { color: #475569; }
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #0f172a;
+      border-left: 4px solid #0051ff;
+      padding-left: 0.75rem;
+      margin: 2rem 0 1rem 0;
+    }
+    .metric-badge {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+    .metric-badge.LOW { background: #e0f2fe; color: #0284c7; }
+    .metric-badge.MEDIUM { background: #fef3c7; color: #d97706; }
+    .metric-badge.HIGH, .metric-badge.CRITICAL { background: #fee2e2; color: #dc2626; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+    }
+    th {
+      background: #f1f5f9;
+      text-align: left;
+      padding: 0.75rem;
+      border-bottom: 2px solid #cbd5e1;
+      color: #334155;
+    }
+    td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .signature-card {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 2px dashed #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .sig-block {
+      text-align: left;
+    }
+    .sig-line {
+      width: 220px;
+      border-bottom: 1px solid #0f172a;
+      margin-bottom: 0.5rem;
+    }
+    .seal-box {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: #64748b;
+      text-align: right;
+    }
+    .print-btn {
+      background: #0051ff;
+      color: #ffffff;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+    }
+    @media print {
+      .print-btn { display: none; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <button class="print-btn" onclick="window.print()">Imprimir / Guardar en PDF</button>
+
+  <div class="header-bar">
+    <div>
+      <div class="corp-title">INDRA CYBERSECURITY INTELLIGENCE</div>
+      <div class="corp-subtitle">GOJO INFINITY SECURITY ∞ — AUDITORÍA TÉCNICA</div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-weight: 800; color: #0051ff; font-size: 1.1rem;">ORGANIZACIÓN: INDRA</div>
+      <div style="font-size: 0.85rem; color: #64748b;">ARQUITECTO: TAKIZAWA</div>
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item"><strong>Proyecto Auditado:</strong> Unit_Test_Purple</div>
+    <div class="meta-item"><strong>Fecha de Emisión:</strong> 2026-11-14 03:04:56 UTC</div>
+    <div class="meta-item"><strong>Nivel de Riesgo Global:</strong> <span class="metric-badge LOW">LOW (0/100)</span></div>
+    <div class="meta-item"><strong>Plataforma de Ejecución:</strong> Android Termux (Zero-Root Architecture)</div>
+  </div>
+
+  <div class="section-title">1. Resumen Ejecutivo de Postura</div>
+  <p>
+    El motor de correlación <strong>Six Eyes</strong> analizó la superficie expuesta, las defensas activas de <strong>Infinity Shield</strong> y las pruebas de seguridad controladas.
+  </p>
+  <ul>
+    <li><strong>Vulnerabilidades Catalogadas:</strong> 0</li>
+    <li><strong>Amenazas Neutralizadas por Infinity Shield:</strong> 20</li>
+    <li><strong>Dispositivos Descubiertos en Red:</strong> 8</li>
+    <li><strong>Reglas Activas en el Firewall WAF:</strong> 0</li>
+  </ul>
+
+  <div class="section-title">2. Vulnerabilidades y Hallazgos</div>
+  <table>
+    <thead>
+      <tr><th>Gravedad</th><th>Título</th><th>CVE</th><th>CVSS</th><th>Objetivo</th><th>Mitigación Recomendada</th></tr>
+    </thead>
+    <tbody>
+      <tr><td colspan='6'>No se detectaron vulnerabilidades críticas en la superficie evaluada.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">3. Contramedidas Defensivas Activas (Infinity Shield)</div>
+  <table>
+    <thead>
+      <tr><th>ID Regla</th><th>Nombre</th><th>Tipo</th><th>Patrón Objetivo</th><th>Impactos Detenidos</th></tr>
+    </thead>
+    <tbody>
+      <tr><td colspan='5'>Infinity Shield en modo de inspección en tiempo real sin bloqueos permanentes.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="signature-card">
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div style="font-weight: 800; color: #0f172a;">Takizawa</div>
+      <div style="font-size: 0.8rem; color: #64748b;">Creador & Arquitecto de Ciberseguridad</div>
+      <div style="font-size: 0.8rem; color: #0051ff; font-weight: 600;">Para: Indra Sistemas</div>
+    </div>
+    <div class="seal-box">
+      <div>SELLO DE VERIFICACIÓN CRIPTOGRÁFICA</div>
+      <div style="font-weight: bold; color: #0f172a; margin-top: 0.25rem;">SHA256: 54229A013FDAE8D2E53E9ABC</div>
+      <div>ESTADO: DOCUMENTO OFICIAL CERTIFICADO</div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,10 +1,10 @@
 @echo off
 REM ============================================================================
-REM  GOJO INFINITY SECURITY (INDEFINIDO) - SCRIPT DE INICIO (WINDOWS)
+REM  INDRA INFINITY SECURITY - SCRIPT DE INICIO (WINDOWS)
 REM  Creador: Takizawa | Para: Indra
 REM ============================================================================
 
-title GOJO INFINITY SECURITY - INDRA
+title INDRA INFINITY SECURITY - TAKIZAWA
 cd /d "%~dp0"
 
 echo [*] Verificando entorno de Python...

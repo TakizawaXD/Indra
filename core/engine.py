@@ -42,6 +42,10 @@ class GojoEngine:
 
     def startup(self):
         """Initializes the database and wakes all subsystems."""
+        # Enforce exclusive Indra license
+        from core.license import IndraLicenseGuard
+        IndraLicenseGuard.enforce_license()
+
         logger.info(f"Awakening {settings.APP_NAME}...")
         self.state = SystemState.STARTING
         self.start_time = time.time()
