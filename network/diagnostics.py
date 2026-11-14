@@ -4,9 +4,13 @@ Inspects local network interfaces, gateways, routing reachability, and public IP
 """
 
 import socket
-import psutil
 from typing import Dict, Any, List
 import httpx
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 class NetworkDiagnostics:
     """Diagnoses connectivity, network interfaces, and IP configurations."""
@@ -14,34 +18,55 @@ class NetworkDiagnostics:
     @staticmethod
     def get_local_interfaces() -> List[Dict[str, Any]]:
         """Inspects all network interfaces available on the Android/Linux device."""
-        interfaces = []
-        net_if_addrs = psutil.net_if_addrs()
-        net_if_stats = psutil.net_if_stats()
+        if psutil:
+            try:
+                interfaces = []
+                net_if_addrs = psutil.net_if_addrs()
+                net_if_stats = psutil.net_if_stats()
 
-        for name, addrs in net_if_addrs.items():
-            stats = net_if_stats.get(name)
-            iface_info = {
-                "interface": name,
-                "is_up": stats.isup if stats else False,
-                "speed_mbps": stats.speed if stats else 0,
-                "ipv4": [],
-                "ipv6": [],
-                "mac": None
-            }
-            for addr in addrs:
-                if addr.family == socket.AF_INET:
-                    iface_info["ipv4"].append({
-                        "address": addr.address,
-                        "netmask": addr.netmask,
-                        "broadcast": addr.broadcast
-                    })
-                elif addr.family == socket.AF_INET6:
-                    iface_info["ipv6"].append(addr.address)
-                elif hasattr(psutil, "AF_LINK") and addr.family == psutil.AF_LINK:
-                    iface_info["mac"] = addr.address
+                for name, addrs in net_if_addrs.items():
+                    stats = net_if_stats.get(name)
+                    iface_info = {
+                        "interface": name,
+                        "is_up": stats.isup if stats else False,
+                        "speed_mbps": stats.speed if stats else 0,
+                        "ipv4": [],
+                        "ipv6": [],
+                        "mac": None
+                    }
+                    for addr in addrs:
+                        if addr.family == socket.AF_INET:
+                            iface_info["ipv4"].append({
+                                "address": addr.address,
+                                "netmask": addr.netmask,
+                                "broadcast": addr.broadcast
+                            })
+                        elif addr.family == socket.AF_INET6:
+                            iface_info["ipv6"].append(addr.address)
+                        elif hasattr(psutil, "AF_LINK") and addr.family == psutil.AF_LINK:
+                            iface_info["mac"] = addr.address
 
-            interfaces.append(iface_info)
-        return interfaces
+                    interfaces.append(iface_info)
+                return interfaces
+            except Exception:
+                pass
+
+        # Fallback for Android Termux without psutil
+        fallback_ip = "127.0.0.1"
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                fallback_ip = s.getsockname()[0]
+        except Exception:
+            pass
+        return [{
+            "interface": "wlan0/eth0",
+            "is_up": True,
+            "speed_mbps": 0,
+            "ipv4": [{"address": fallback_ip, "netmask": "255.255.255.0", "broadcast": None}],
+            "ipv6": [],
+            "mac": None
+        }]
 
     @staticmethod
     def get_device_ip_overview() -> Dict[str, Any]:

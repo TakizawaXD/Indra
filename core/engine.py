@@ -6,8 +6,12 @@ Manages system lifecycle, module states, uptime and system telemetry.
 import time
 from core.timeutils import utcnow
 import os
-import psutil
 from typing import Dict, Any
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 from core.config import settings
 from core.logger import logger
@@ -78,10 +82,18 @@ class GojoEngine:
         cpu_percent = 0.0
 
         try:
-            process = psutil.Process(os.getpid())
-            mem_info = process.memory_info()
-            memory_usage_mb = round(mem_info.rss / (1024 * 1024), 2)
-            cpu_percent = process.cpu_percent(interval=None)
+            if psutil:
+                process = psutil.Process(os.getpid())
+                mem_info = process.memory_info()
+                memory_usage_mb = round(mem_info.rss / (1024 * 1024), 2)
+                cpu_percent = process.cpu_percent(interval=None)
+            elif os.path.exists("/proc/self/status"):
+                with open("/proc/self/status", "r") as f:
+                    for line in f:
+                        if line.startswith("VmRSS:"):
+                            kb = int(line.split()[1])
+                            memory_usage_mb = round(kb / 1024, 2)
+                            break
         except Exception:
             pass
 

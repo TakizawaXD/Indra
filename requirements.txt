@@ -18,6 +18,3 @@ dnspython>=2.6.0,<3.0.0
 # Terminal UI & CLI Styling
 rich>=13.7.1
 prompt-toolkit>=3.0.43,<4.0.0
-
-# System Telemetry
-psutil>=5.9.8
