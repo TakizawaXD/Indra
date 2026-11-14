@@ -19,12 +19,12 @@ if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then
         echo "[STATUS] Active & Running (PID: $PID)"
-        echo "[PORT]   http://127.0.0.1:8000"
+        echo "[API]    Proceso de API sin interfaz en ejecucion (python -m backend.main)"
     else
         echo "[STATUS] Stale PID file found. Process $PID is not running."
     fi
 else
-    echo "[STATUS] Stopped"
+    echo "[STATUS] Sin procesos en segundo plano. Modo terminal: inicia con  bash start.sh"
 fi
 
 if [ -f "$DB_FILE" ]; then

@@ -68,5 +68,12 @@ def setup_logger(name: str = "gojo") -> logging.Logger:
     logger.propagate = False
     return logger
 
+def set_console_level(level: int) -> None:
+    """Changes only the on-screen verbosity; the log file keeps every record."""
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, RotatingFileHandler):
+            handler.setLevel(level)
+
+
 # Primary Default Logger
 logger = setup_logger("six_eyes")

@@ -35,7 +35,7 @@ chmod +x *.sh
 bash start.sh
 ```
 
-*(Una vez iniciado, accede al Dashboard Web en `http://127.0.0.1:8000` o abre la CLI interactiva con `python -m terminal.shell`)*
+*(Se abre directamente la terminal interactiva de Indra. Toda la interfaz funciona desde la terminal: escribe `help` para ver los comandos.)*
 
 ---
 
@@ -53,7 +53,7 @@ chmod +x *.sh
 bash start.sh
 ```
 
-*(Una vez iniciado, accede al Dashboard Web en `http://127.0.0.1:8000` o entra a la terminal interactiva con `python3 -m terminal.shell`)*
+*(Se abre directamente la terminal interactiva de Indra. Toda la interfaz funciona desde la terminal: escribe `help` para ver los comandos.)*
 
 ---
 
@@ -84,8 +84,8 @@ python -m pip install -r requirements.txt
 
 | Paquete | Version Requerida | Categoria | Proposito Tecnico en Indra Infinity |
 |---|---|---|---|
-| `fastapi` | `>=0.110.0,<1.0.0` | Framework Web | Core de la API REST, enrutamiento y WebSockets de eventos |
-| `uvicorn[standard]` | `>=0.29.0,<1.0.0` | Servidor ASGI | Servidor asincrono de alto rendimiento para el Dashboard Web |
+| `fastapi` | `>=0.110.0,<1.0.0` | Framework Web | Core de la API REST opcional, enrutamiento y WebSockets de eventos |
+| `uvicorn[standard]` | `>=0.29.0,<1.0.0` | Servidor ASGI | Servidor de la API REST opcional (`server start` desde la terminal) |
 | `pydantic` | `>=2.6.0,<3.0.0` | Validacion | Validacion estricta de esquemas, tipos y payloads de entrada |
 | `pydantic-settings` | `>=2.2.0,<3.0.0` | Configuracion | Carga tipada de variables de entorno y archivos `.env` |
 | `sqlalchemy` | `>=2.0.28,<3.0.0` | Persistencia | Capa ORM para gestion de los 21 modelos de base de datos |
@@ -124,9 +124,35 @@ Para acceder a la terminal de ciberseguridad en cualquier momento:
 python -m terminal.shell
 ```
 
-Comandos principales:
+### Menu numerado (modo principal)
+Al abrir la terminal se muestra el **menu principal numerado**. Escribe el numero de la opcion y pulsa Enter:
+
+```
+ 1  Panel de control                          9  Redes — Diagnostico y topologia
+ 2  Monitor en vivo                          10  Inteligencia de IPs
+ 3  Infinity Shield — Defensa                11  Vulnerabilidades y CVE
+ 4  Blue — Reconocimiento                    12  Amenazas, incidentes y eventos
+ 5  Red — Auditoria controlada               13  Laboratorio de practica
+ 6  Purple — Riesgo, cuarentena e informes   14  Servidor API (opcional)
+ 7  Hollow Purple — Protocolo de 5 fases     15  Sistema — Estado y configuracion
+ 8  Six Eyes — Asesor de seguridad            0  Salir
+```
+
+- Las opciones con `›` abren un submenu; `0` vuelve atras (o sale desde el menu principal).
+- Si una opcion necesita datos (IP, URL, contraseña...), la terminal los pide paso a paso; algunas ofrecen un valor por defecto entre corchetes (Enter para aceptarlo).
+- Con el sistema bloqueado solo aparece `1  Insertar llave de licencia`.
+- `menu` vuelve al menu principal desde cualquier punto. Los registros tecnicos se guardan en `logs/gojo_infinity.log` (en pantalla solo se muestran errores).
+
+### Comandos escritos (modo avanzado)
+Ademas del menu, se puede escribir cualquier comando directamente (con autocompletado por Tab):
 - `insertar llave` : Opcion inicial al abrir el sistema para pegar la llave y desbloquear la plataforma.
 - `help` : Despliega la matriz completa de operaciones y tecnicas.
+- `dashboard` : Panel de control en la terminal (metricas, riesgo, postura y ultimos eventos).
+- `monitor [segundos]` : El mismo panel en vivo con refresco automatico (Ctrl+C para volver).
+- `network topology` : Arbol de hosts y servicios descubiertos.
+- `blue web <url>` : Auditoria web no intrusiva (cabeceras de seguridad, tecnologias, TLS).
+- `server start [puerto]` / `server stop` / `server status` : API REST opcional protegida por Infinity Shield (no hay interfaz web).
+- `config` : Configuracion activa y rutas de datos.
 - `status` : Muestra el estado en tiempo real de todos los modulos.
 - `infinity status` : Estado del motor de proteccion y lista de IPs bloqueadas.
 - `blue scan <IP>` : Escaneo no intrusivo de puertos TCP autorizados.
@@ -158,7 +184,7 @@ Resultado verificado: `Ran 25 tests - OK` con 100% de aprobacion.
 3. **Exposicion en red:** por defecto el servidor escucha solo en `127.0.0.1`. Si cambias `GOJO_HOST` a `0.0.0.0` (acceso desde la LAN) define **obligatoriamente** `GOJO_API_TOKEN`; el panel lo pedira una vez y lo recordara en el navegador.
 4. **Protecciones activas:** cabecera Host validada (anti DNS-rebinding), sin CORS abierto, CSP en el panel, rate limiting por IP y escape de todo contenido externo (banners, PTR, rutas) en el panel y los reportes. La IP local (`127.0.0.1`) nunca se bloquea automaticamente.
 5. **Datos en tiempo de ejecucion** (`database/`, `logs/`, `reports/`, `backups/`, `quarantine/`) estan excluidos de git. Usa `bash backup.sh` para respaldarlos. `GOJO_DATA_DIR` permite moverlos a otra ruta.
-6. **Salud del servicio:** `GET /health` devuelve el estado del motor.
+6. **Interfaz unica:** toda la operacion se hace desde la terminal (`start.sh` / `start.bat`). La API REST es opcional, se inicia con `server start` y se detiene sola al salir de la terminal. `GET /health` devuelve el estado del motor.
 
 ---
 

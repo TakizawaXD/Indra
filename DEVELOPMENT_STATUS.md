@@ -25,7 +25,7 @@
 | **Phase 11** | Vulnerability Center (CVE/CVSS & Local Offline DB) | COMPLETED | Verified | Curated offline CVE feed, NIST NVD live client, status validator |
 | **Phase 12** | Attack Lab (Local Safe Vulnerability Practice Range) | COMPLETED | Verified | Safe in-memory SQLi, XSS, and weak auth testbeds |
 | **Phase 13** | GOJO Interactive Terminal CLI | COMPLETED | Verified | Rich Gojo-themed interactive CLI shell with auto-complete (`terminal/`) |
-| **Phase 14** | Gojo Satoru Local Web Dashboard (FastAPI + JS/CSS) | COMPLETED | Verified | Port 8000, 15 complete screens, WebSockets, Chart.js, Gojo theme |
+| **Phase 14** | Terminal-Only Interface (Rich) | COMPLETED | Verified | Web dashboard replaced by terminal views: `dashboard`, live `monitor`, `network topology`, `config`; optional REST API via `server start` |
 | **Phase 15** | HOLLOW PURPLE Protocol Integration | COMPLETED | Verified | Unified 5-phase convergence (Blue -> Red -> Purple -> Infinity -> Six Eyes) |
 | **Phase 16** | Comprehensive Automated Testing & Optimization | COMPLETED | 25/25 Passed | `test_core.py`, `test_full_suite.py`, `test_hollow_purple.py`, `test_license.py` (isolated temp data dir) |
 | **Phase 17** | Final Documentation, Manuals & Stable Release | COMPLETED | Verified | Complete `README.md` and operational guide |

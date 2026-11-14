@@ -14,6 +14,7 @@ os.environ.pop("GOJO_API_TOKEN", None)
 
 import unittest
 import asyncio
+from unittest import mock
 from fastapi.testclient import TestClient
 
 from backend.main import app
@@ -33,7 +34,25 @@ class TestGojoComprehensiveSuite(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         init_db()
+        # API tests run unlocked regardless of whether a license key exists on this machine
+        cls._license_patch = mock.patch("core.license.IndraLicenseGuard.verify_license", return_value=True)
+        cls._license_patch.start()
         cls.client = TestClient(app)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._license_patch.stop()
+
+    def test_locked_platform_rejects_api(self):
+        with mock.patch("core.license.IndraLicenseGuard.verify_license", return_value=False):
+            resp = self.client.get("/api/telemetry")
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(self.client.get("/health").status_code, 200)
+
+    def test_no_web_interface(self):
+        resp = self.client.get("/")
+        self.assertEqual(resp.json()["interface"], "terminal")
+        self.assertEqual(self.client.get("/static/js/app.js").status_code, 404)
 
     # 1. INFINITY SHIELD TESTS
     def test_infinity_shield_waf_inspection(self):
