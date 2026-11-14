@@ -60,8 +60,8 @@ class GojoEngine:
             self.modules[mod] = "ONLINE"
 
         self.state = SystemState.ONLINE
-        return True
         logger.info(f"{settings.APP_NAME} is fully ONLINE and operational.")
+        return True
 
     def shutdown(self):
         """Gracefully halts all internal active routines."""

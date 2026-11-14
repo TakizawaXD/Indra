@@ -1,6 +1,8 @@
 """
-GOJO INFINITY SECURITY ∞ — PRIMARY ASGI WEB SERVER & WAF ENGINE
-FastAPI Application serving the Local Dashboard, REST API, and Infinity Shield WAF Middleware.
+GOJO INFINITY SECURITY ∞ — OPTIONAL REST API SERVER & WAF ENGINE
+FastAPI application exposing the REST API protected by the Infinity Shield WAF middleware.
+There is no web interface: the platform is operated from the interactive terminal
+(python -m terminal.shell), which starts/stops this server with "server start|stop".
 """
 
 import hmac
@@ -10,8 +12,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from core.config import settings
@@ -22,32 +23,26 @@ from techniques.infinity.shield import infinity_shield
 from backend.api.router import api_router
 from ip_intelligence.logger import IPLoggerService
 
-FRONTEND_DIR = settings.BASE_DIR / "frontend"
-STATIC_SUFFIXES = (".css", ".js", ".png", ".ico", ".svg", ".woff", ".woff2", ".map")
+from core.engine import SystemState
+from core.license import IndraLicenseGuard
 
-CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline'; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-    "font-src 'self' https://fonts.gstatic.com data:; "
-    "img-src 'self' data:; "
-    "connect-src 'self' ws: wss:; "
-    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-)
+# The API serves JSON only; nothing may be framed, scripted or embedded.
+CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'none'"
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    from core.license import IndraLicenseGuard
-    if IndraLicenseGuard.verify_license():
-        engine_runtime.startup()
-    else:
-        logger.warning("[LICENSE] INDRA INFINITY SECURITY iniciado en modo BLOQUEADO. Esperando llave de licencia.")
+    # When launched from the terminal the engine is already ONLINE: reuse it and
+    # do not shut it down when the API server stops.
+    started_here = False
+    if engine_runtime.state != SystemState.ONLINE:
+        started_here = engine_runtime.startup()
+        if not started_here:
+            logger.warning("[LICENSE] API iniciada en modo BLOQUEADO: todas las rutas /api responderan 403.")
     try:
         IPLoggerService.prune_retention(days=settings.IP_HISTORY_RETENTION_DAYS)
     except Exception as e:  # retention must never block startup
         logger.error(f"IP history retention pruning failed: {e}")
-    logger.info(f"Local Web Dashboard listening at: http://{settings.HOST}:{settings.PORT}")
     logger.info(f"Termux push notifications: {'enabled' if TermuxNotifier.HAS_TERMUX_NOTIFY else 'unavailable (terminal fallback)'}")
     if not settings.is_loopback_bind and not settings.API_TOKEN:
         logger.warning(
@@ -55,7 +50,8 @@ async def lifespan(_app: FastAPI):
             "Anyone on the network can use the API. Set GOJO_API_TOKEN in .env."
         )
     yield
-    engine_runtime.shutdown()
+    if started_here:
+        engine_runtime.shutdown()
 
 
 app = FastAPI(
@@ -81,16 +77,16 @@ async def infinity_shield_waf_middleware(request: Request, call_next):
     method = request.method
     query = str(request.url.query)
 
-    # 1. Visit logging for managed dashboard / API endpoints.
-    #    Stored in the IP history only (no event-bus emission) so that the dashboard's
-    #    own polling does not generate a feedback loop of events.
-    if not path.startswith("/static") and not path.endswith(STATIC_SUFFIXES):
+    # 1. Visit logging for API endpoints.
+    #    Stored in the IP history only (no event-bus emission) so that polling clients
+    #    do not generate a feedback loop of events.
+    if path != "/health":
         try:
             IPLoggerService.record_visit(
                 ip_address=client_ip,
                 path=path,
                 user_agent=request.headers.get("user-agent"),
-                consent_status="informed_dashboard_operator",
+                consent_status="informed_api_client",
                 emit_event=False,
             )
         except Exception as e:
@@ -117,7 +113,14 @@ async def infinity_shield_waf_middleware(request: Request, call_next):
             }
         )
 
-    # 3. Optional API token authentication
+    # 3. License gate: a locked platform does not serve the API
+    if path.startswith("/api/") and not IndraLicenseGuard.verify_license():
+        return JSONResponse(
+            status_code=403,
+            content={"error": "Locked", "detail": "Sistema bloqueado. Activa la licencia desde la terminal con 'insertar llave'."},
+        )
+
+    # 4. Optional API token authentication
     if settings.API_TOKEN and path.startswith("/api/") and not _token_is_valid(request):
         return JSONResponse(status_code=401, content={"error": "Unauthorized", "detail": "Missing or invalid API token."})
 
@@ -127,7 +130,7 @@ async def infinity_shield_waf_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "no-referrer"
-    if path == "/" or path.startswith("/static"):
+    if not path.startswith(("/docs", "/redoc")):
         response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
     return response
 
@@ -146,17 +149,15 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 # Mount REST API
 app.include_router(api_router)
 
-# Mount Static Frontend
-if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
 
 @app.get("/", include_in_schema=False)
-async def serve_index():
-    index_file = FRONTEND_DIR / "index.html"
-    if index_file.exists():
-        return FileResponse(str(index_file))
-    return {"message": f"{settings.APP_NAME} is active. Frontend index initializing."}
+async def root():
+    return {
+        "system": settings.APP_NAME,
+        "interface": "terminal",
+        "message": "Sin interfaz web. Opera la plataforma con: python -m terminal.shell",
+        "api_docs": "/docs",
+    }
 
 
 @app.get("/health", include_in_schema=False)
@@ -165,20 +166,15 @@ async def health():
 
 
 def start():
-    import socket
-    target_port = settings.PORT
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex((settings.HOST, target_port)) == 0:
-                logger.warning(f"Puerto {target_port} ocupado. Conmutando a {target_port + 1}...")
-                target_port += 1
-    except Exception:
-        pass
+    """Headless API mode (no terminal). Prefer 'server start' from the terminal."""
+    if not IndraLicenseGuard.verify_license():
+        print("[-] Sistema bloqueado: activa la licencia con 'python -m terminal.shell' -> 'insertar llave'.", file=sys.stderr)
+        sys.exit(1)
 
     uvicorn.run(
         "backend.main:app",
         host=settings.HOST,
-        port=target_port,
+        port=settings.PORT,
         log_level="debug" if settings.DEBUG else "info",
         reload=False,
         proxy_headers=False,

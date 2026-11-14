@@ -101,22 +101,24 @@ def run_shell():
             # Handle locked state
             if not is_licensed:
                 lower_cmd = clean_cmd.lower()
-                if lower_cmd == "insertar llave" or lower_cmd == "insertar-llave" or lower_cmd.startswith("insertar llave ") or lower_cmd.startswith("key "):
-                    # Extract inline key if provided
-                    candidate_key = ""
-                    if lower_cmd.startswith("insertar llave "):
-                        candidate_key = clean_cmd[15:].strip()
-                    elif lower_cmd.startswith("key "):
-                        candidate_key = clean_cmd[4:].strip()
+                candidate_key = ""
 
-                    # If not inline, prompt for it
-                    if not candidate_key:
-                        try:
-                            candidate_key = session.prompt("Pega la llave como texto > ").strip()
-                        except (KeyboardInterrupt, EOFError):
-                            console.print("\n[yellow]Operacion cancelada.[/yellow]")
-                            continue
+                if IndraLicenseGuard.validate_key_string(clean_cmd):
+                    candidate_key = clean_cmd
+                elif lower_cmd in ("insertar llave", "insertar-llave", "llave", "key"):
+                    try:
+                        candidate_key = session.prompt("Pega la llave como texto > ").strip()
+                    except (KeyboardInterrupt, EOFError):
+                        console.print("\n[yellow]Operacion cancelada.[/yellow]")
+                        continue
+                elif lower_cmd.startswith("insertar llave "):
+                    candidate_key = clean_cmd[15:].strip()
+                elif lower_cmd.startswith("insertar-llave "):
+                    candidate_key = clean_cmd[15:].strip()
+                elif lower_cmd.startswith("key ") or lower_cmd.startswith("llave "):
+                    candidate_key = clean_cmd.split(maxsplit=1)[1].strip()
 
+                if candidate_key:
                     if IndraLicenseGuard.validate_key_string(candidate_key):
                         IndraLicenseGuard.save_key(candidate_key)
                         is_licensed = True
@@ -130,10 +132,10 @@ def run_shell():
                         session.completer = WordCompleter(COMMANDS_LIST, ignore_case=True)
                     else:
                         console.print("[bold red][-][/bold red] Llave no valida o no autorizada para Indra.")
-                        console.print("[yellow][!] Usa 'insertar llave' para reintentar.[/yellow]")
+                        console.print("[yellow][!] Usa 'insertar llave' o pega directamente la clave correcta para reintentar.[/yellow]")
                 else:
                     console.print("[bold red][-][/bold red] SISTEMA BLOQUEADO. La unica opcion disponible es: [bold white]'insertar llave'[/bold white]")
-                    console.print("[dim]Escribe 'insertar llave' y pega la clave como texto para acceder.[/dim]")
+                    console.print("[dim]Escribe 'insertar llave' o pega directamente la clave para acceder.[/dim]")
                 continue
 
             # Normal command execution when licensed
