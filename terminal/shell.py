@@ -23,35 +23,35 @@ COMMANDS_LIST = [
 def run_shell():
     print_banner()
     from core.license import IndraLicenseGuard
-    if not IndraLicenseGuard.verify_license():
-        console.print("[bold yellow][!] SISTEMA BLOQUEADO — ACTIVACION REQUERIDA[/bold yellow]")
-        console.print("[cyan]Este software esta protegido criptograficamente para uso exclusivo de INDRA.[/cyan]")
-        console.print("[dim cyan]Creador y Arquitecto: Takizawa[/dim cyan]\n")
-        if not IndraLicenseGuard.prompt_interactive_license():
-            console.print("[bold red][-] Acceso denegado. Cerrando sesion.[/bold red]")
-            sys.exit(1)
+    is_licensed = IndraLicenseGuard.verify_license()
 
-    # Wake up the engine once licensed
-    try:
-        engine_runtime.startup()
-    except PermissionError as e:
-        console.print(f"[bold red][-][/bold red] {e}", markup=True, highlight=False)
-        sys.exit(1)
+    if is_licensed:
+        try:
+            engine_runtime.startup()
+        except Exception as e:
+            console.print(f"[bold red][-][/bold red] Error de inicio: {e}")
+        console.print("[bold cyan]Bienvenido a INDRA TERMINAL. Escribe [bold white]'help'[/bold white] para ver la matriz de comandos o [bold white]'exit'[/bold white] para salir.[/bold cyan]\n")
+        active_completer = WordCompleter(COMMANDS_LIST, ignore_case=True)
+    else:
+        console.print("[bold yellow][!] SISTEMA BLOQUEADO — ACCESO RESTRINGIDO[/bold yellow]")
+        console.print("[cyan]El sistema ha iniciado en modo protegido para uso exclusivo de INDRA.[/cyan]")
+        console.print("[bold green]Unica opcion disponible: [bold white]'insertar llave'[/bold white][/bold green]")
+        console.print("[dim]Escribe 'insertar llave', pega la clave como texto y presiona Enter para acceder.[/dim]\n")
+        active_completer = WordCompleter(["insertar llave", "exit", "quit", "clear"], ignore_case=True)
 
-    console.print("[bold cyan]Bienvenido a INDRA TERMINAL. Escribe [bold white]'help'[/bold white] para ver la matriz de comandos o [bold white]'exit'[/bold white] para salir.[/bold cyan]\n")
-
-    completer = WordCompleter(COMMANDS_LIST, ignore_case=True)
     custom_style = Style.from_dict({
         "prompt": "#00f0ff bold",
     })
 
-    session = PromptSession(completer=completer, style=custom_style)
+    session = PromptSession(completer=active_completer, style=custom_style)
 
     while True:
         try:
-            prompt_text = [
-                ("class:prompt", "indra-infinity > ")
-            ]
+            if is_licensed:
+                prompt_text = [("class:prompt", "indra-infinity > ")]
+            else:
+                prompt_text = [("class:prompt", "indra-infinity [BLOQUEADO] > ")]
+
             user_input = session.prompt(prompt_text).strip()
 
             if not user_input:
@@ -64,15 +64,57 @@ def run_shell():
             if user_input.lower() == "clear":
                 console.clear()
                 print_banner()
+                if not is_licensed:
+                    console.print("[bold yellow][!] SISTEMA BLOQUEADO — UNICA OPCION: 'insertar llave'[/bold yellow]\n")
                 continue
 
             # Strip leading 'indra' or 'gojo' if user typed it out
-            if user_input.lower().startswith("indra "):
-                user_input = user_input[6:].strip()
-            elif user_input.lower().startswith("gojo "):
-                user_input = user_input[5:].strip()
+            clean_cmd = user_input
+            if clean_cmd.lower().startswith("indra "):
+                clean_cmd = clean_cmd[6:].strip()
+            elif clean_cmd.lower().startswith("gojo "):
+                clean_cmd = clean_cmd[5:].strip()
 
-            GojoCommandHandler.execute(user_input)
+            # Handle locked state
+            if not is_licensed:
+                lower_cmd = clean_cmd.lower()
+                if lower_cmd == "insertar llave" or lower_cmd == "insertar-llave" or lower_cmd.startswith("insertar llave ") or lower_cmd.startswith("key "):
+                    # Extract inline key if provided
+                    candidate_key = ""
+                    if lower_cmd.startswith("insertar llave "):
+                        candidate_key = clean_cmd[15:].strip()
+                    elif lower_cmd.startswith("key "):
+                        candidate_key = clean_cmd[4:].strip()
+
+                    # If not inline, prompt for it
+                    if not candidate_key:
+                        try:
+                            candidate_key = session.prompt("Pega la llave como texto > ").strip()
+                        except (KeyboardInterrupt, EOFError):
+                            console.print("\n[yellow]Operacion cancelada.[/yellow]")
+                            continue
+
+                    if IndraLicenseGuard.validate_key_string(candidate_key):
+                        IndraLicenseGuard.save_key(candidate_key)
+                        is_licensed = True
+                        try:
+                            engine_runtime.startup()
+                        except Exception as e:
+                            console.print(f"[bold red][-][/bold red] Error al iniciar modulos: {e}")
+                        console.print("[bold green][+][/bold green] Llave autenticada con exito. Bienvenido, Indra. Acceso concedido por Takizawa.")
+                        console.print("[bold cyan][*][/bold cyan] Todas las tecnicas (Blue, Red, Purple, Infinity, Six Eyes) han sido desbloqueadas.")
+                        console.print("[dim]Escribe 'help' para explorar los comandos operativos.[/dim]\n")
+                        session.completer = WordCompleter(COMMANDS_LIST, ignore_case=True)
+                    else:
+                        console.print("[bold red][-][/bold red] Llave no valida o no autorizada para Indra.")
+                        console.print("[yellow][!] Usa 'insertar llave' para reintentar.[/yellow]")
+                else:
+                    console.print("[bold red][-][/bold red] SISTEMA BLOQUEADO. La unica opcion disponible es: [bold white]'insertar llave'[/bold white]")
+                    console.print("[dim]Escribe 'insertar llave' y pega la clave como texto para acceder.[/dim]")
+                continue
+
+            # Normal command execution when licensed
+            GojoCommandHandler.execute(clean_cmd)
             console.print()
 
         except KeyboardInterrupt:

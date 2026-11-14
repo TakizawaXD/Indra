@@ -125,6 +125,7 @@ python -m terminal.shell
 ```
 
 Comandos principales:
+- `insertar llave` : Opcion inicial al abrir el sistema para pegar la llave y desbloquear la plataforma.
 - `help` : Despliega la matriz completa de operaciones y tecnicas.
 - `status` : Muestra el estado en tiempo real de todos los modulos.
 - `infinity status` : Estado del motor de proteccion y lista de IPs bloqueadas.
