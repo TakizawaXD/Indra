@@ -16,8 +16,11 @@
       <p style="color: #94a3b8; font-size: 13px; margin-bottom: 24px;">Este sistema esta protegido criptograficamente para uso exclusivo de <strong style="color: #f1f5f9;">Indra</strong>. Creado por <strong style="color: #f1f5f9;">Takizawa</strong>. Introduce la llave autorizada para desbloquear la plataforma.</p>
       
       <div style="text-align: left; margin-bottom: 20px;">
-        <label for="license-key-input" style="display: block; color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 8px;">LLAVE DE LICENCIA MAESTRA</label>
-        <input type="password" id="license-key-input" placeholder="INDRA-TAKIZAWA-..." style="width: 100%; padding: 12px 16px; background: #070913; border: 1px solid #334155; border-radius: 8px; color: #00f0ff; font-family: monospace; font-size: 14px; outline: none; box-sizing: border-box;" onfocus="this.style.borderColor='#a855f7'" onblur="this.style.borderColor='#334155'">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label for="license-key-input" style="color: #cbd5e1; font-size: 12px; font-weight: 600;">LLAVE DE LICENCIA MAESTRA</label>
+          <button type="button" onclick="pasteLicenseKey()" style="background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.3); color: #00f0ff; font-size: 11px; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600;">Pegar Texto</button>
+        </div>
+        <input type="text" id="license-key-input" placeholder="Pega aqui la llave como texto (INDRA-TAKIZAWA-...)" spellcheck="false" autocomplete="off" style="width: 100%; padding: 12px 16px; background: #070913; border: 1px solid #334155; border-radius: 8px; color: #00f0ff; font-family: monospace; font-size: 14px; outline: none; box-sizing: border-box;" onfocus="this.style.borderColor='#a855f7'" onblur="this.style.borderColor='#334155'">
       </div>
       
       <div id="license-error-msg" style="display: none; color: #ef4444; font-size: 13px; margin-bottom: 16px; font-weight: 600;"></div>

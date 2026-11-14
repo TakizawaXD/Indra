@@ -15,6 +15,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // --- Activacion de Licencia para Indra ----------------------------------------
 
+async function pasteLicenseKey() {
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const text = await navigator.clipboard.readText();
+      const input = document.getElementById("license-key-input");
+      if (input && text) {
+        input.value = text.trim();
+      }
+    } else {
+      const input = document.getElementById("license-key-input");
+      if (input) input.focus();
+    }
+  } catch (err) {
+    const input = document.getElementById("license-key-input");
+    if (input) input.focus();
+  }
+}
+
 async function checkLicenseStatus() {
   try {
     const res = await fetch("/api/license/status");

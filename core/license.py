@@ -56,15 +56,17 @@ class IndraLicenseGuard:
         """Validates a key candidate string against the authorized SHA-256 hash."""
         if not candidate:
             return False
-        return hmac.compare_digest(hash_key(candidate.strip()), AUTHORIZED_KEY_SHA256)
+        cleaned = candidate.strip().strip('"').strip("'").strip()
+        return hmac.compare_digest(hash_key(cleaned), AUTHORIZED_KEY_SHA256)
 
     @classmethod
     def save_key(cls, key: str) -> bool:
         """Persists a valid key to config/license.key."""
         try:
+            cleaned = key.strip().strip('"').strip("'").strip()
             settings.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             key_path = settings.CONFIG_DIR / "license.key"
-            key_path.write_text(key.strip(), encoding="utf-8")
+            key_path.write_text(cleaned, encoding="utf-8")
             return True
         except Exception as e:
             logger.error(f"Error al guardar la llave de licencia: {e}")
@@ -82,7 +84,7 @@ class IndraLicenseGuard:
 
         for attempt in range(1, 4):
             try:
-                key_input = input("\n[?] Introduce la llave de licencia de Indra: ").strip()
+                key_input = input("\n[?] Pega la llave de licencia de Indra como texto: ").strip()
             except (EOFError, KeyboardInterrupt):
                 print("\n[-] Activacion cancelada por el operador.")
                 return False
