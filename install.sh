@@ -64,10 +64,15 @@ if [ ! -f config/license.key ] && [ -z "$INDRA_LICENSE_KEY" ]; then
     echo -e "${YELLOW}[!] No license key found. Place it in config/license.key or set INDRA_LICENSE_KEY.${NC}"
 fi
 
-# 5. Virtual Environment or Direct Pip Install
+# 5. Dependencies Installation
 echo -e "${CYAN}[*] Installing verified Python dependencies...${NC}"
-$PY_BIN -m pip install --upgrade pip setuptools wheel
-$PY_BIN -m pip install -r requirements.txt
+if [ "$IS_TERMUX" = true ]; then
+    pkg install -y python-pydantic python-psutil python-cryptography python-sqlalchemy python-pip || true
+    $PY_BIN -m pip install -r requirements.txt
+else
+    $PY_BIN -m pip install --upgrade pip setuptools wheel
+    $PY_BIN -m pip install -r requirements.txt
+fi
 
 # 6. Database and Config Initialization Check
 echo -e "${CYAN}[*] Initializing Indra Infinity SQLite Database & Core Schemas...${NC}"
