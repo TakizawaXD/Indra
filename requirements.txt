@@ -1,4 +1,4 @@
-# GOJO INFINITY SECURITY ∞ — REQUIREMENTS
+# INDRA INFINITY SECURITY ∞ — REQUIREMENTS
 # Verified for Android Termux Python 3.10+ (arm64/v7a/x86_64)
 
 # Web Framework & High-Performance ASGI

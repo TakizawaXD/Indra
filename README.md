@@ -47,7 +47,43 @@ git clone https://github.com/TakizawaXD/Indra.git; cd Indra; python -m pip insta
 
 ---
 
-## 2. MODALIDADES OPERATIVAS Y COLORES DEL SISTEMA
+## 2. MATRIZ COMPLETA DE DEPENDENCIAS DEL SISTEMA
+
+### A. Dependencias Nativas por Sistema Operativo
+
+| Sistema Operativo | Paquetes del Sistema Requeridos | Comando de Instalacion Directa |
+|---|---|---|
+| **Android (Termux)** | `python`, `git`, `curl`, `wget`, `openssl`, `clang`, `libffi`, `make`, `binutils` *(Opcional: `termux-api`)* | `pkg install -y python git curl wget openssl clang libffi make binutils` |
+| **Linux (Debian / Ubuntu / Kali)** | `python3`, `python3-pip`, `python3-venv`, `git`, `curl`, `wget`, `build-essential`, `libssl-dev`, `libffi-dev` | `sudo apt install -y python3 python3-pip python3-venv git curl wget build-essential libssl-dev libffi-dev` |
+| **Linux (Arch Linux / Manjaro)** | `python`, `python-pip`, `git`, `curl`, `wget`, `base-devel`, `openssl`, `libffi` | `sudo pacman -Sy --noconfirm python python-pip git curl wget base-devel openssl libffi` |
+| **Linux (Fedora / RHEL)** | `python3`, `python3-pip`, `git`, `curl`, `wget`, `gcc`, `openssl-devel`, `libffi-devel` | `sudo dnf install -y python3 python3-pip git curl wget gcc openssl-devel libffi-devel` |
+| **Microsoft Windows** | `Python 3.10+` (con pip y agregado al PATH), `Git for Windows` | Descargar desde python.org y git-scm.com |
+
+### B. Dependencias de Python (requirements.txt)
+
+| Paquete | Version Requerida | Categoria | Proposito Tecnico en Indra Infinity |
+|---|---|---|---|
+| `fastapi` | `>=0.110.0,<1.0.0` | Framework Web | Core de la API REST, enrutamiento y WebSockets de eventos |
+| `uvicorn[standard]` | `>=0.29.0,<1.0.0` | Servidor ASGI | Servidor asincrono de alto rendimiento para el Dashboard Web |
+| `pydantic` | `>=2.6.0,<3.0.0` | Validacion | Validacion estricta de esquemas, tipos y payloads de entrada |
+| `pydantic-settings` | `>=2.2.0,<3.0.0` | Configuracion | Carga tipada de variables de entorno y archivos `.env` |
+| `sqlalchemy` | `>=2.0.28,<3.0.0` | Persistencia | Capa ORM para gestion de los 21 modelos de base de datos |
+| `aiosqlite` | `>=0.20.0,<1.0.0` | Base de Datos | Driver asincrono para SQLite local sin bloqueos I/O |
+| `httpx` | `>=0.27.0,<1.0.0` | Red Asincrona | Cliente HTTP para escaneos y auditorias web no intrusivas |
+| `requests` | `>=2.31.0,<3.0.0` | Red Sincrona | Cliente HTTP para validaciones de conectividad y endpoints |
+| `dnspython` | `>=2.6.0,<3.0.0` | Red & DNS | Resolucion DNS de registros A, AAAA, MX, NS, TXT y Reverse PTR |
+| `cryptography` | `>=42.0.5` | Criptografia | Cifrado asimetrico, generacion de claves y proteccion de datos |
+| `bcrypt` | `>=4.1.2` | Hashing | Hashing seguro de contraseñas con sal y derivacion de claves |
+| `pyjwt` | `>=2.8.0` | Seguridad | Creacion, firma y verificacion de tokens de sesion JWT |
+| `rich` | `>=13.7.1` | Terminal UI | Formato estetico, tablas, paneles y colores para la CLI |
+| `prompt-toolkit` | `>=3.0.43` | Terminal CLI | Shell interactiva con autocompletado y gestion de historial |
+| `python-multipart` | `>=0.0.9` | Procesamiento | Parser de peticiones multipart para subida y analisis de archivos |
+| `aiofiles` | `>=23.2.1` | Sistema de Archivos | Operaciones asincronas de lectura/escritura (cuarentena y logs) |
+| `psutil` | `>=5.9.8` | Monitoreo | Diagnostico de hardware, memoria, interfaces y sockets del SO |
+
+---
+
+## 3. MODALIDADES OPERATIVAS Y COLORES DEL SISTEMA
 
 El sistema clasifica sus tecnicas en tres pilares sin ambiguedades:
 
@@ -68,7 +104,7 @@ El sistema clasifica sus tecnicas en tres pilares sin ambiguedades:
 
 ---
 
-## 3. COMANDOS DE LA TERMINAL INTERACTIVA CLI
+## 4. COMANDOS DE LA TERMINAL INTERACTIVA CLI
 Para acceder a la terminal de ciberseguridad en cualquier momento:
 ```bash
 python -m terminal.shell
@@ -87,7 +123,7 @@ Comandos principales:
 
 ---
 
-## 4. VERIFICACION DE PRUEBAS DE CALIDAD
+## 5. VERIFICACION DE PRUEBAS DE CALIDAD
 Para corroborar la estabilidad y operatividad de todos los subsistemas:
 ```bash
 python -m unittest discover tests
@@ -96,7 +132,7 @@ Resultado verificado: `Ran 15 tests in 2.090s - OK` con 100% de aprobacion.
 
 ---
 
-## 5. CREDITOS Y LICENCIA
+## 6. CREDITOS Y LICENCIA
 - **Organizacion:** Indra
 - **Creador y Arquitecto:** Takizawa
 - **Sistema:** INDRA INFINITY SECURITY
