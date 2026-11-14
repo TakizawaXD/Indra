@@ -58,12 +58,12 @@ bash start.sh
 ---
 
 ### C. WINDOWS (POWERSHELL / CMD) — COPIAR Y PEGAR EN 1 SOLA CAJA
-```cmd
+```powershell
 git clone https://github.com/TakizawaXD/Indra.git
 cd Indra
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements.txt
-start.bat
+.\start.bat
 ```
 
 ---
