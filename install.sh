@@ -40,7 +40,7 @@ fi
 if [ "$IS_TERMUX" = true ]; then
     echo -e "${CYAN}[*] Updating Termux packages and installing dependencies...${NC}"
     pkg update -y || apt-get update -y
-    pkg install -y python git curl wget openssl clang libffi make binutils || true
+    pkg install -y python python-pip git curl wget openssl clang libffi make binutils python-cryptography python-pydantic python-psutil || true
 fi
 
 # 3. Check Python 3

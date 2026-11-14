@@ -25,11 +25,9 @@ Copia y pega la caja completa correspondiente a tu sistema operativo directament
 ### A. ANDROID (TERMUX) — COPIAR Y PEGAR EN 1 SOLA CAJA
 ```bash
 pkg update -y
-pkg upgrade -y
-pkg install -y python git curl wget openssl clang libffi make binutils
-git clone https://github.com/TakizawaXD/Indra.git
+pkg install -y python python-pip git curl wget openssl clang libffi make binutils python-cryptography python-pydantic python-psutil
+[ -d "Indra" ] && (cd Indra && git pull origin main) || git clone https://github.com/TakizawaXD/Indra.git
 cd Indra
-pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 chmod +x *.sh
 bash start.sh
