@@ -54,11 +54,6 @@ sudo apt update && sudo apt install -y python3 python3-pip python3-venv git curl
 ---
 
 ### C. WINDOWS (POWERSHELL / CMD) — COPIAR Y PEGAR EN 1 SOLA CAJA
-```cmd
-git clone https://github.com/TakizawaXD/Indra.git && cd Indra && python -m pip install --upgrade pip setuptools wheel && python -m pip install -r requirements.txt && start.bat
-```
-
-*(O en PowerShell moderno)*:
 ```powershell
 git clone https://github.com/TakizawaXD/Indra.git; cd Indra; python -m pip install --upgrade pip setuptools wheel; python -m pip install -r requirements.txt; .\start.bat
 ```
