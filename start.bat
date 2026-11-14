@@ -17,10 +17,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [*] Inicializando base de datos y esquemas...
-python -c "from backend.database import init_db; init_db()"
-
-echo [*] Iniciando servidor y panel local en http://127.0.0.1:8000 ...
+echo [*] Iniciando INDRA INFINITY SECURITY...
+echo [*] Servidor y panel local en http://127.0.0.1:8000
 echo [*] Presiona Ctrl+C para detener el servicio.
 echo.
 

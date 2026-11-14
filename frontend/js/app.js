@@ -5,12 +5,74 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
+  checkLicenseStatus();
   initWebSocket();
   loadDashboardData();
   initHollowCanvas();
   // Refresco periódico de respaldo (por si el WebSocket no está disponible)
   setInterval(loadDashboardData, 15000);
 });
+
+// --- Activacion de Licencia para Indra ----------------------------------------
+
+async function checkLicenseStatus() {
+  try {
+    const res = await fetch("/api/license/status");
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.licensed === false) {
+        const modal = document.getElementById("license-modal");
+        if (modal) modal.style.display = "flex";
+      }
+    }
+  } catch (e) {
+    // ignorar error de red
+  }
+}
+
+async function submitLicenseActivation() {
+  const input = document.getElementById("license-key-input");
+  const errorDiv = document.getElementById("license-error-msg");
+  const btn = document.getElementById("btn-activate-license");
+  const key = (input ? input.value : "").trim();
+
+  if (!key) {
+    if (errorDiv) {
+      errorDiv.textContent = "[-] Por favor introduce la llave de licencia.";
+      errorDiv.style.display = "block";
+    }
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  if (errorDiv) errorDiv.style.display = "none";
+
+  try {
+    const res = await fetch("/api/license/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: key })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const modal = document.getElementById("license-modal");
+      if (modal) modal.style.display = "none";
+      loadDashboardData();
+    } else {
+      if (errorDiv) {
+        errorDiv.textContent = data.detail || "[-] Llave no valida o no autorizada para Indra.";
+        errorDiv.style.display = "block";
+      }
+    }
+  } catch (err) {
+    if (errorDiv) {
+      errorDiv.textContent = "[-] Error de comunicacion al validar licencia.";
+      errorDiv.style.display = "block";
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
 
 // --- Utilidades ---------------------------------------------------------------
 

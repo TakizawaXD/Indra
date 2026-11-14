@@ -48,6 +48,39 @@ def _to_http_error(e: Exception) -> HTTPException:
     return HTTPException(status_code=500, detail="Internal server error")
 
 
+class LicenseActivationRequest(BaseModel):
+    key: str
+
+
+@api_router.get("/license/status")
+def get_license_status():
+    from core.license import IndraLicenseGuard
+    return {
+        "status": "success",
+        "licensed": IndraLicenseGuard.verify_license(),
+        "organization": "Indra",
+        "creator": "Takizawa"
+    }
+
+
+@api_router.post("/license/activate")
+def activate_system_license(req: LicenseActivationRequest):
+    from core.license import IndraLicenseGuard
+    if IndraLicenseGuard.validate_key_string(req.key):
+        IndraLicenseGuard.save_key(req.key)
+        try:
+            engine_runtime.startup()
+        except Exception as e:
+            logger.warning(f"Engine startup after activation: {e}")
+        return {
+            "status": "success",
+            "message": "Licencia autenticada exitosamente. Acceso concedido para Indra.",
+            "organization": "Indra",
+            "creator": "Takizawa"
+        }
+    raise HTTPException(status_code=403, detail="Llave de licencia no valida o no autorizada para Indra.")
+
+
 # --- Telemetry & System Status ---
 @api_router.get("/telemetry")
 def get_system_telemetry():

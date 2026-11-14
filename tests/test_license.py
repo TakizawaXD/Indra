@@ -30,12 +30,16 @@ class TestIndraLicense(unittest.TestCase):
             os.environ["INDRA_LICENSE_KEY"] = "INVALID-KEY-123"
             self.assertFalse(IndraLicenseGuard.verify_license())
             with self.assertRaises(PermissionError):
-                IndraLicenseGuard.enforce_license()
+                IndraLicenseGuard.enforce_license(allow_prompt=False)
         finally:
             if old_env is not None:
                 os.environ["INDRA_LICENSE_KEY"] = old_env
             else:
                 os.environ.pop("INDRA_LICENSE_KEY", None)
+
+    def test_validate_key_string(self):
+        self.assertFalse(IndraLicenseGuard.validate_key_string("WRONG_KEY"))
+        self.assertTrue(IndraLicenseGuard.validate_key_string("INDRA-TAKIZAWA-INFINITY-KEY-9F4E-8C2A-7B1D-2026"))
 
 if __name__ == "__main__":
     unittest.main()

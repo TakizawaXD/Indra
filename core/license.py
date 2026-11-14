@@ -52,20 +52,76 @@ class IndraLicenseGuard:
         return hmac.compare_digest(hash_key(key), AUTHORIZED_KEY_SHA256)
 
     @classmethod
-    def enforce_license(cls):
+    def validate_key_string(cls, candidate: str) -> bool:
+        """Validates a key candidate string against the authorized SHA-256 hash."""
+        if not candidate:
+            return False
+        return hmac.compare_digest(hash_key(candidate.strip()), AUTHORIZED_KEY_SHA256)
+
+    @classmethod
+    def save_key(cls, key: str) -> bool:
+        """Persists a valid key to config/license.key."""
+        try:
+            settings.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            key_path = settings.CONFIG_DIR / "license.key"
+            key_path.write_text(key.strip(), encoding="utf-8")
+            return True
+        except Exception as e:
+            logger.error(f"Error al guardar la llave de licencia: {e}")
+            return False
+
+    @classmethod
+    def prompt_interactive_license(cls) -> bool:
+        """Prompts operator interactively in the terminal for the license key."""
+        print("\n" + "=" * 60)
+        print("INDRA INFINITY SECURITY (INFINITY) — ACTIVACION DE SISTEMA")
+        print("Disenado Exclusivamente para: INDRA")
+        print("Creador y Arquitecto del Sistema: TAKIZAWA")
+        print("=" * 60)
+        print("[*] El sistema requiere autenticacion de licencia para desbloquearse.")
+
+        for attempt in range(1, 4):
+            try:
+                key_input = input("\n[?] Introduce la llave de licencia de Indra: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\n[-] Activacion cancelada por el operador.")
+                return False
+
+            if not key_input:
+                continue
+
+            if cls.validate_key_string(key_input):
+                cls.save_key(key_input)
+                print("[+] Llave autenticada exitosamente. Acceso concedido para Indra.")
+                print("[+] Licencia registrada en config/license.key\n")
+                return True
+            else:
+                print(f"[-] Llave no valida o no autorizada para Indra (Intento {attempt}/3).")
+
+        print("[-] Limite de intentos superado. Acceso denegado.\n")
+        return False
+
+    @classmethod
+    def enforce_license(cls, allow_prompt: bool = True) -> bool:
         """Halts initialization if the license key is invalid or absent."""
-        if not cls.verify_license():
-            msg = (
-                "\n============================================================\n"
-                "[-] ACCESO DENEGADO — LICENCIA NO VALIDA\n"
-                "Este software fue desarrollado exclusivamente para INDRA.\n"
-                "Creador y Arquitecto del Sistema: Takizawa\n\n"
-                "Por favor, configure la llave valida en: config/license.key\n"
-                "o defina la variable de entorno INDRA_LICENSE_KEY\n"
-                "============================================================\n"
-            )
-            logger.critical(msg)
-            raise PermissionError("Acceso bloqueado: Llave de licencia exclusiva para Indra requerida.")
+        if cls.verify_license():
+            return True
+
+        if allow_prompt and sys.stdin and hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
+            if cls.prompt_interactive_license():
+                return True
+
+        msg = (
+            "\n============================================================\n"
+            "[-] ACCESO DENEGADO — LICENCIA NO VALIDA\n"
+            "Este software fue desarrollado exclusivamente para INDRA.\n"
+            "Creador y Arquitecto del Sistema: Takizawa\n\n"
+            "Por favor, configure la llave valida en: config/license.key\n"
+            "o defina la variable de entorno INDRA_LICENSE_KEY\n"
+            "============================================================\n"
+        )
+        logger.critical(msg)
+        raise PermissionError("Acceso bloqueado: Llave de licencia exclusiva para Indra requerida.")
 
 
 if __name__ == "__main__":

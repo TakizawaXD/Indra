@@ -21,13 +21,23 @@ COMMANDS_LIST = [
 ]
 
 def run_shell():
-    # Wake up the engine if not already online
+    print_banner()
+    from core.license import IndraLicenseGuard
+    if not IndraLicenseGuard.verify_license():
+        console.print("[bold yellow][!] SISTEMA BLOQUEADO — ACTIVACION REQUERIDA[/bold yellow]")
+        console.print("[cyan]Este software esta protegido criptograficamente para uso exclusivo de INDRA.[/cyan]")
+        console.print("[dim cyan]Creador y Arquitecto: Takizawa[/dim cyan]\n")
+        if not IndraLicenseGuard.prompt_interactive_license():
+            console.print("[bold red][-] Acceso denegado. Cerrando sesion.[/bold red]")
+            sys.exit(1)
+
+    # Wake up the engine once licensed
     try:
         engine_runtime.startup()
     except PermissionError as e:
         console.print(f"[bold red][-][/bold red] {e}", markup=True, highlight=False)
         sys.exit(1)
-    print_banner()
+
     console.print("[bold cyan]Bienvenido a INDRA TERMINAL. Escribe [bold white]'help'[/bold white] para ver la matriz de comandos o [bold white]'exit'[/bold white] para salir.[/bold cyan]\n")
 
     completer = WordCompleter(COMMANDS_LIST, ignore_case=True)

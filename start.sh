@@ -32,6 +32,19 @@ fi
 
 PY_BIN=$(command -v python3 || command -v python)
 
+# Verificar licencia antes de iniciar el servicio en segundo plano
+if ! "$PY_BIN" -m core.license > /dev/null 2>&1; then
+    echo "======================================================================"
+    echo " [!] INDRA INFINITY SECURITY - ACTIVACION DE LICENCIA REQUERIDA"
+    echo " Creador: Takizawa | Para: Indra"
+    echo "======================================================================"
+    "$PY_BIN" -c "from core.license import IndraLicenseGuard; IndraLicenseGuard.prompt_interactive_license()"
+    if ! "$PY_BIN" -m core.license > /dev/null 2>&1; then
+        echo "[-] Licencia no verificada. Operacion cancelada."
+        exit 1
+    fi
+fi
+
 echo "[+] Awakening Indra Infinity Engine & Six Eyes Orchestrator..."
 nohup "$PY_BIN" -m backend.main > "$LOG_FILE" 2>&1 &
 INDRA_PID=$!

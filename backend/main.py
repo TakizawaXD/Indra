@@ -38,7 +38,11 @@ CONTENT_SECURITY_POLICY = (
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    engine_runtime.startup()
+    from core.license import IndraLicenseGuard
+    if IndraLicenseGuard.verify_license():
+        engine_runtime.startup()
+    else:
+        logger.warning("[LICENSE] INDRA INFINITY SECURITY iniciado en modo BLOQUEADO. Esperando llave de licencia.")
     try:
         IPLoggerService.prune_retention(days=settings.IP_HISTORY_RETENTION_DAYS)
     except Exception as e:  # retention must never block startup

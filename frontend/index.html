@@ -8,6 +8,24 @@
 </head>
 <body>
 
+  <!-- Modal de Activacion de Licencia para Indra -->
+  <div id="license-modal" style="display: none; position: fixed; inset: 0; background: rgba(5, 7, 15, 0.96); backdrop-filter: blur(12px); z-index: 99999; justify-content: center; align-items: center;">
+    <div style="background: #0d1124; border: 2px solid #a855f7; border-radius: 12px; max-width: 520px; width: 90%; padding: 32px; box-shadow: 0 0 50px rgba(168, 85, 247, 0.35); text-align: center;">
+      <div style="display: inline-block; padding: 4px 14px; background: rgba(168, 85, 247, 0.15); border: 1px solid #a855f7; border-radius: 20px; color: #d8b4fe; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px;">Activacion Requerida</div>
+      <h2 style="color: #00f0ff; font-size: 24px; font-weight: 800; margin-bottom: 8px; letter-spacing: 1px;">INDRA INFINITY SECURITY</h2>
+      <p style="color: #94a3b8; font-size: 13px; margin-bottom: 24px;">Este sistema esta protegido criptograficamente para uso exclusivo de <strong style="color: #f1f5f9;">Indra</strong>. Creado por <strong style="color: #f1f5f9;">Takizawa</strong>. Introduce la llave autorizada para desbloquear la plataforma.</p>
+      
+      <div style="text-align: left; margin-bottom: 20px;">
+        <label for="license-key-input" style="display: block; color: #cbd5e1; font-size: 12px; font-weight: 600; margin-bottom: 8px;">LLAVE DE LICENCIA MAESTRA</label>
+        <input type="password" id="license-key-input" placeholder="INDRA-TAKIZAWA-..." style="width: 100%; padding: 12px 16px; background: #070913; border: 1px solid #334155; border-radius: 8px; color: #00f0ff; font-family: monospace; font-size: 14px; outline: none; box-sizing: border-box;" onfocus="this.style.borderColor='#a855f7'" onblur="this.style.borderColor='#334155'">
+      </div>
+      
+      <div id="license-error-msg" style="display: none; color: #ef4444; font-size: 13px; margin-bottom: 16px; font-weight: 600;"></div>
+      
+      <button id="btn-activate-license" onclick="submitLicenseActivation()" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #00f0ff, #a855f7); border: none; border-radius: 8px; color: #05070f; font-weight: 800; font-size: 14px; letter-spacing: 1px; cursor: pointer; text-transform: uppercase; transition: transform 0.2s, box-shadow 0.2s;">Desbloquear Sistema</button>
+    </div>
+  </div>
+
  <!-- Barra Lateral de Navegación con Etiquetas de Modalidad -->
  <aside class="sidebar">
  <div class="brand">
