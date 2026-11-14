@@ -1,0 +1,549 @@
+/**
+ * GOJO INFINITY SECURITY ∞ — CONTROLADOR DE INTERFAZ & MOTOR VISUAL
+ * Manejo de pestañas, WebSockets en vivo, REST APIs y Animación de Hollow Purple.
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+  setupTabs();
+  initWebSocket();
+  loadDashboardData();
+  initHollowCanvas();
+});
+
+// Descripción intuitiva de cada pestaña para guiar al usuario
+const TAB_DESCRIPTIONS = {
+  "tab-dashboard": "Monitoreo en tiempo real, defensa activa y acceso rápido a módulos.",
+  "tab-hollow": "Convergencia definitiva de las 4 técnicas en un ciclo automatizado de 5 fases.",
+  "tab-sixeyes": "Asesor de seguridad cognitivo con base de conocimientos offline y resolución de dudas.",
+  "tab-infinity": "Firewall de aplicación (WAF), rate limiting y mitigación de intrusiones en tiempo real.",
+  "tab-blue": "Reconocimiento no intrusivo de puertos y servicios en objetivos autorizados.",
+  "tab-red": "Auditorías de contraseñas y validación de controles de acceso.",
+  "tab-purple": "Cálculo del índice de riesgo, correlación de amenazas y reportes ejecutivos.",
+  "tab-network": "Diagnóstico de interfaces de red locales y estado de conectividad en Termux.",
+  "tab-ip": "Consulta heurística de IPs e historial de visitas a servicios administrados.",
+  "tab-vulnerability": "Inventario de vulnerabilidades encontradas y base de datos CVE local.",
+  "tab-lab": "Entorno seguro de práctica para SQL Injection, XSS y pruebas de credenciales.",
+  "tab-threats": "Historial de comportamientos anómalos interceptados por el sistema.",
+  "tab-incidents": "Gestión y seguimiento de incidentes de seguridad de gravedad alta.",
+  "tab-reports": "Archivos ejecutivos generados listos para descarga y auditoría.",
+  "tab-settings": "Verificación del estado del entorno y persistencia en Termux."
+};
+
+// --- Manejo de Pestañas ---
+function setupTabs() {
+  const buttons = document.querySelectorAll(".nav-btn");
+
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const targetTab = btn.getAttribute("data-tab");
+      switchTab(targetTab);
+    });
+  });
+}
+
+function switchTab(targetTab) {
+  const buttons = document.querySelectorAll(".nav-btn");
+  const panes = document.querySelectorAll(".tab-pane");
+
+  buttons.forEach(b => {
+    if (b.getAttribute("data-tab") === targetTab) {
+      b.classList.add("active");
+      document.getElementById("screenTitle").innerText = b.innerText;
+    } else {
+      b.classList.remove("active");
+    }
+  });
+
+  panes.forEach(p => {
+    if (p.id === targetTab) {
+      p.classList.add("active");
+    } else {
+      p.classList.remove("active");
+    }
+  });
+
+  const descEl = document.getElementById("screenDesc");
+  if (descEl && TAB_DESCRIPTIONS[targetTab]) {
+    descEl.innerText = TAB_DESCRIPTIONS[targetTab];
+  }
+
+  // Carga diferida de datos según la pestaña activa
+  if (targetTab === "tab-infinity") loadShieldRules();
+  if (targetTab === "tab-purple") loadPurpleRisk();
+  if (targetTab === "tab-ip") loadIpData();
+  if (targetTab === "tab-vulnerability") loadVulns();
+  if (targetTab === "tab-network") loadNetworkDiagnostics();
+}
+
+// --- Terminal en Vivo (WebSocket) ---
+function initWebSocket() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${window.location.host}/api/ws/telemetry`;
+  const terminal = document.getElementById("liveTerminalFeed");
+
+  try {
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "SECURITY_EVENT") {
+          const e = msg.data;
+          const line = document.createElement("div");
+          line.className = `log-line ${e.severity}`;
+          line.innerText = `[${e.time}] [${e.module}] [${e.severity}] ${e.description}`;
+          terminal.prepend(line);
+
+          if (terminal.children.length > 60) {
+            terminal.removeChild(terminal.lastChild);
+          }
+
+          loadDashboardData();
+        }
+      } catch (err) {
+        console.error("Error al procesar mensaje de WebSocket:", err);
+      }
+    };
+
+    ws.onerror = () => {
+      console.log("WebSocket en modo fallback; datos por polling REST.");
+    };
+  } catch (e) {
+    console.log("WebSockets no soportados en este navegador.");
+  }
+}
+
+// --- Datos del Panel Principal ---
+async function loadDashboardData() {
+  try {
+    const res = await fetch("/api/overview");
+    if (!res.ok) return;
+    const data = await res.json();
+
+    document.getElementById("metricShieldStatus").innerText = data.correlation.infinity_shield_status;
+    document.getElementById("metricEventsCount").innerText = data.correlation.total_security_events;
+    document.getElementById("metricThreatsCount").innerText = data.correlation.active_threats;
+    document.getElementById("metricVulnCount").innerText = data.correlation.total_vulnerabilities;
+  } catch (e) {
+    console.error("Error al cargar telemetría:", e);
+  }
+}
+
+// --- Infinity Shield (Defensa) ---
+async function loadShieldRules() {
+  const table = document.getElementById("shieldRulesTable");
+  table.innerHTML = "<tr><td colspan='7'>Consultando reglas en base de datos...</td></tr>";
+
+  try {
+    const res = await fetch("/api/infinity/rules");
+    const rules = await res.json();
+
+    if (!rules || rules.length === 0) {
+      table.innerHTML = "<tr><td colspan='7' style='color:var(--text-muted);'>No hay bloqueos activos. Infinity Shield está supervisando solicitudes.</td></tr>";
+      return;
+    }
+
+    table.innerHTML = rules.map(r => `
+      <tr>
+        <td><strong>#${r.id}</strong></td>
+        <td><code>${r.target}</code></td>
+        <td><span class="pill LOW">${r.type}</span></td>
+        <td><span class="pill CRITICAL">${r.action}</span></td>
+        <td>${r.hits}</td>
+        <td>${r.expires_at}</td>
+        <td><button class="btn btn-red" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="handleUnbanIp('${r.target}')">Desbloquear</button></td>
+      </tr>
+    `).join("");
+  } catch (e) {
+    table.innerHTML = `<tr><td colspan='7' style='color:var(--gojo-red);'>Error al cargar reglas: ${e}</td></tr>`;
+  }
+}
+
+async function handleBanIp() {
+  const ip = document.getElementById("banIpInput").value.trim();
+  if (!ip) return alert("Por favor ingresa una dirección IP válida.");
+
+  await fetch("/api/infinity/ban", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ip_address: ip, reason: "Bloqueo manual desde el Panel", duration_minutes: 60 })
+  });
+
+  document.getElementById("banIpInput").value = "";
+  alert(`La dirección IP ${ip} ha sido bloqueada por 60 minutos.`);
+  loadShieldRules();
+}
+
+async function handleUnbanIp(ip) {
+  await fetch(`/api/infinity/unban/${ip}`, { method: "POST" });
+  loadShieldRules();
+}
+
+// --- Blue Recon (Escaneo) ---
+async function handleBlueScan() {
+  const target = document.getElementById("blueTargetInput").value.trim() || "127.0.0.1";
+  const table = document.getElementById("blueResultsTable");
+  table.innerHTML = `<tr><td colspan='5' style='color:var(--gojo-cyan);'>Escaneando puertos TCP en ${target} (espera un momento)...</td></tr>`;
+
+  try {
+    const res = await fetch("/api/blue/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: target })
+    });
+    const data = await res.json();
+
+    if (!data.open_ports || data.open_ports.length === 0) {
+      table.innerHTML = "<tr><td colspan='5' style='color:var(--text-muted);'>No se detectaron puertos TCP abiertos en este objetivo.</td></tr>";
+      return;
+    }
+
+    table.innerHTML = data.open_ports.map(p => `
+      <tr>
+        <td><strong>${p.port}</strong></td>
+        <td>${p.protocol.toUpperCase()}</td>
+        <td><span class="pill OPEN">ABIERTO</span></td>
+        <td><strong>${p.service}</strong></td>
+        <td><code>${p.banner || "Sin banner"}</code></td>
+      </tr>
+    `).join("");
+  } catch (e) {
+    table.innerHTML = `<tr><td colspan='5' style='color:var(--gojo-red);'>Error durante el escaneo: ${e}</td></tr>`;
+  }
+}
+
+// --- Red Operations (Auditoría) ---
+async function handlePasswordAudit() {
+  const pw = document.getElementById("redPasswordInput").value;
+  if (!pw) return alert("Por favor introduce una contraseña para evaluar.");
+
+  const res = await fetch("/api/red/audit-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: pw })
+  });
+  const data = await res.json();
+
+  const isStrong = data.strength === "STRONG" || data.strength === "VERY_STRONG";
+  const color = isStrong ? "var(--gojo-green)" : "var(--gojo-red)";
+
+  document.getElementById("passwordAuditResult").innerHTML = `
+    <div style="background:rgba(0,0,0,0.4); padding:1rem 1.25rem; border-radius:8px; border:1px solid ${color};">
+      <div style="margin-bottom:0.4rem;">Longitud: <strong>${data.length} caracteres</strong> | Entropía Matemática: <strong>${data.entropy_bits} bits</strong></div>
+      <div style="margin-bottom:0.4rem;">Nivel de Fortaleza: <span class="pill ${isStrong ? 'OPEN' : 'CRITICAL'}">${data.strength}</span></div>
+      <div>Apta para Cuentas Administrativas: <strong>${data.is_acceptable_for_admin ? "[APROBADA]" : "[RECHAZADA] (Muy Débil)"}</strong></div>
+    </div>
+  `;
+}
+
+// --- Purple Intelligence ---
+async function loadPurpleRisk() {
+  try {
+    const res = await fetch("/api/purple/risk");
+    const data = await res.json();
+    document.getElementById("purpleRiskScore").innerText = `${data.risk_index} / 100`;
+    const levelEl = document.getElementById("purpleRiskLevel");
+    levelEl.innerText = `Nivel de Riesgo Global: ${data.risk_level}`;
+    levelEl.style.color = (data.risk_level === "CRITICAL" || data.risk_level === "HIGH") ? "var(--gojo-red)" : "var(--gojo-cyan)";
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function handleGenerateReport() {
+  try {
+    const res = await fetch("/api/purple/report", { method: "POST" });
+    const data = await res.json();
+    alert(`[+] Informe Generado Exitosamente:\n${data.report_title}\nGuardado en: ${data.report_path}`);
+    const out = document.getElementById("reportStatusOutput");
+    if (out) {
+      out.innerHTML = `<div class="guide-box">Último informe: <strong>${data.report_title}</strong> listo en el disco local.</div>`;
+    }
+  } catch (e) {
+    alert(`Error al generar informe: ${e}`);
+  }
+}
+
+// --- Six Eyes AI ---
+async function handleAskSixEyes() {
+  const query = document.getElementById("sixEyesQueryInput").value.trim();
+  if (!query) return;
+
+  const box = document.getElementById("sixEyesAnswerBox");
+  box.innerText = "Analizando con la sabiduría de Six Eyes (Modo Offline)...";
+
+  try {
+    const res = await fetch("/api/sixeyes/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: query })
+    });
+    const data = await res.json();
+    box.innerText = data.answer;
+  } catch (e) {
+    box.innerText = `Error: ${e}`;
+  }
+}
+
+// --- IP Intelligence ---
+async function loadIpData() {
+  try {
+    const res = await fetch("/api/ip/history");
+    const data = await res.json();
+    const table = document.getElementById("ipHistoryTable");
+
+    if (!data || data.length === 0) {
+      table.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted);'>No hay visitas registradas aún.</td></tr>";
+      return;
+    }
+
+    table.innerHTML = data.map(h => `
+      <tr>
+        <td><code>${h.ip}</code></td>
+        <td>${h.path}</td>
+        <td><span class="pill LOW">${h.consent}</span></td>
+        <td>${h.timestamp}</td>
+      </tr>
+    `).join("");
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function handleIpLookup() {
+  const ip = document.getElementById("ipLookupInput").value.trim();
+  if (!ip) return alert("Ingresa una dirección IP.");
+
+  const out = document.getElementById("ipLookupOutput");
+  out.innerHTML = "<div style='color:var(--gojo-cyan);'>Consultando datos de la IP...</div>";
+
+  try {
+    const res = await fetch(`/api/ip/lookup?ip=${encodeURIComponent(ip)}`);
+    const data = await res.json();
+
+    if (data.error) {
+      out.innerHTML = `<div style="color:var(--gojo-red);">${data.error}</div>`;
+      return;
+    }
+
+    out.innerHTML = `
+      <div style="background:rgba(0,0,0,0.5); padding:1.25rem; border-radius:8px; border:1px solid var(--border-color); font-family:var(--font-mono); font-size:0.88rem; line-height:1.6;">
+        <div><strong>IP:</strong> ${data.ip} (IPv${data.version}) | <strong>Red Privada:</strong> ${data.is_private ? "Sí (Local)" : "No (Pública)"}</div>
+        <div><strong>DNS Inverso (PTR):</strong> ${data.reverse_dns || "Ninguno"}</div>
+        <div><strong>Ubicación Aproximada:</strong> ${data.geolocation.country || "Desconocido"} - ${data.geolocation.city || "Ciudad Desconocida"}</div>
+        <div><strong>ASN / Proveedor:</strong> ${data.network.asn || "N/A"} (${data.network.organization || "N/A"})</div>
+        <div style="color:var(--text-muted); font-size:0.75rem; margin-top:0.6rem;">* ${data.geolocation.disclaimer}</div>
+      </div>
+    `;
+  } catch (e) {
+    out.innerText = `Error: ${e}`;
+  }
+}
+
+// --- Vulnerabilidades ---
+async function loadVulns() {
+  const table = document.getElementById("vulnTable");
+  try {
+    const res = await fetch("/api/vulnerabilities");
+    const vulns = await res.json();
+
+    if (!vulns || vulns.length === 0) {
+      table.innerHTML = "<tr><td colspan='6' style='color:var(--gojo-green); font-weight:600;'>Cero vulnerabilidades pendientes. La postura de seguridad es óptima.</td></tr>";
+      return;
+    }
+
+    table.innerHTML = vulns.map(v => `
+      <tr>
+        <td><span class="pill ${v.severity}">${v.severity}</span></td>
+        <td>${v.title}</td>
+        <td><code>${v.cve_id || "N/A"}</code></td>
+        <td><strong>${v.cvss_score}</strong></td>
+        <td>${v.status}</td>
+        <td><code>${v.target}</code></td>
+      </tr>
+    `).join("");
+  } catch (e) {
+    table.innerHTML = `<tr><td colspan='6' style='color:var(--gojo-red);'>Error al cargar vulnerabilidades: ${e}</td></tr>`;
+  }
+}
+
+// --- Laboratorio de Práctica (Attack Lab) ---
+function setLabPayload(val) {
+  document.getElementById("labPayloadInput").value = val;
+}
+
+function updateLabPayloadHelper() {
+  const scenario = document.getElementById("labScenarioSelect").value;
+  if (scenario === "sqli_lab") {
+    setLabPayload("' OR '1'='1");
+  } else if (scenario === "xss_lab") {
+    setLabPayload("<script>alert('Gojo')</script>");
+  } else if (scenario === "auth_lab") {
+    setLabPayload("operator");
+  }
+}
+
+async function handleRunLabSimulation() {
+  const scenario = document.getElementById("labScenarioSelect").value;
+  const payload = document.getElementById("labPayloadInput").value;
+  const out = document.getElementById("labSimulationOutput");
+
+  out.innerHTML = "<div style='color:var(--gojo-yellow);'>Ejecutando simulación en memoria...</div>";
+
+  try {
+    const res = await fetch("/api/lab/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        scenario_id: scenario, 
+        input_data: payload,
+        password_attempt: scenario === "auth_lab" ? "password123" : null
+      })
+    });
+    const data = await res.json();
+    out.innerHTML = `
+      <div style="color:var(--gojo-green); font-weight:700; margin-bottom:0.5rem;">[+] Simulación Completada Exitosamente</div>
+      <pre style="white-space:pre-wrap; font-family:var(--font-mono); font-size:0.85rem; color:#f8fafc;">${JSON.stringify(data, null, 2)}</pre>
+    `;
+  } catch (e) {
+    out.innerHTML = `<div style="color:var(--gojo-red);">Fallo en la simulación: ${e}</div>`;
+  }
+}
+
+// --- Diagnóstico de Red ---
+async function loadNetworkDiagnostics() {
+  const out = document.getElementById("networkDiagnosticsOutput");
+  out.innerHTML = "<div style='color:var(--gojo-cyan);'>Inspeccionando sockets de red...</div>";
+
+  try {
+    const res = await fetch("/api/network/diagnostics");
+    const data = await res.json();
+    out.innerHTML = `
+      <div style="margin-bottom:1.25rem;">
+        <strong>Dirección IP Local de Salida:</strong> <code style="font-size:1.1rem; color:var(--gojo-cyan);">${data.primary_local_ip}</code>
+      </div>
+      <div style="font-weight:600; margin-bottom:0.5rem;">Interfaces Detectadas en el Dispositivo:</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.75rem;">
+        ${data.interfaces.map(i => `
+          <div style="background:rgba(0,0,0,0.4); padding:0.9rem; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+            <div>Interfaz: <strong style="color:var(--gojo-cyan);">${i.interface}</strong> ${i.is_up ? '<span class="pill OPEN">ACTIVA</span>' : '<span class="pill MEDIUM">INACTIVA</span>'}</div>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-top:0.35rem;">IPv4: ${i.ipv4.map(a => a.address).join(", ") || "Ninguna"}</div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } catch (e) {
+    out.innerText = `Error: ${e}`;
+  }
+}
+
+// --- Animación Canvas de Hollow Purple ---
+let hollowCtx = null;
+let hollowAnimId = null;
+
+function initHollowCanvas() {
+  const canvas = document.getElementById("hollowCanvas");
+  if (!canvas) return;
+  canvas.width = canvas.parentElement.clientWidth || 600;
+  canvas.height = 340;
+  hollowCtx = canvas.getContext("2d");
+  drawIdleOrbs(canvas.width, canvas.height);
+}
+
+function drawIdleOrbs(w, h) {
+  if (!hollowCtx) return;
+  hollowCtx.clearRect(0, 0, w, h);
+
+  // Núcleo Azul (Izquierda - Reconocimiento)
+  hollowCtx.beginPath();
+  hollowCtx.arc(w * 0.25, h * 0.5, 32, 0, Math.PI * 2);
+  hollowCtx.fillStyle = "#0066ff";
+  hollowCtx.shadowColor = "#00f0ff";
+  hollowCtx.shadowBlur = 25;
+  hollowCtx.fill();
+
+  // Núcleo Rojo (Derecha - Validación Ofensiva)
+  hollowCtx.beginPath();
+  hollowCtx.arc(w * 0.75, h * 0.5, 32, 0, Math.PI * 2);
+  hollowCtx.fillStyle = "#ff0055";
+  hollowCtx.shadowColor = "#ff0055";
+  hollowCtx.shadowBlur = 25;
+  hollowCtx.fill();
+}
+
+async function triggerHollowPurple() {
+  const target = document.getElementById("hollowTargetInput").value.trim() || "127.0.0.1";
+  const statusEl = document.getElementById("hollowStatusText");
+  const canvas = document.getElementById("hollowCanvas");
+  const w = canvas.width;
+  const h = canvas.height;
+
+  statusEl.innerText = "Fase 1: AZUL (Reconocimiento del objetivo)...";
+
+  let progress = 0;
+  function animateConvergence() {
+    progress += 0.025;
+    hollowCtx.clearRect(0, 0, w, h);
+
+    const blueX = (w * 0.25) + ((w * 0.5 - w * 0.25) * Math.min(1, progress));
+    const redX = (w * 0.75) - ((w * 0.75 - w * 0.5) * Math.min(1, progress));
+
+    // Orb Azul
+    hollowCtx.beginPath();
+    hollowCtx.arc(blueX, h * 0.5, 32, 0, Math.PI * 2);
+    hollowCtx.fillStyle = "#0066ff";
+    hollowCtx.shadowColor = "#00f0ff";
+    hollowCtx.shadowBlur = 30;
+    hollowCtx.fill();
+
+    // Orb Rojo
+    hollowCtx.beginPath();
+    hollowCtx.arc(redX, h * 0.5, 32, 0, Math.PI * 2);
+    hollowCtx.fillStyle = "#ff0055";
+    hollowCtx.shadowColor = "#ff0055";
+    hollowCtx.shadowBlur = 30;
+    hollowCtx.fill();
+
+    if (progress < 1) {
+      hollowAnimId = requestAnimationFrame(animateConvergence);
+    } else {
+      explodePurple(w, h);
+    }
+  }
+
+  function explodePurple(w, h) {
+    statusEl.innerText = "CONVERGENCIA DEFINITIVA: HOLLOW PURPLE (虚式「茈」) DESATADO";
+    let radius = 35;
+    function pulsePurple() {
+      radius += 4;
+      hollowCtx.clearRect(0, 0, w, h);
+
+      hollowCtx.beginPath();
+      hollowCtx.arc(w * 0.5, h * 0.5, radius, 0, Math.PI * 2);
+      hollowCtx.fillStyle = "#a855f7";
+      hollowCtx.shadowColor = "#e879f9";
+      hollowCtx.shadowBlur = 50;
+      hollowCtx.fill();
+
+      if (radius < 130) {
+        requestAnimationFrame(pulsePurple);
+      }
+    }
+    pulsePurple();
+  }
+
+  animateConvergence();
+
+  // Ejecución del API
+  try {
+    const res = await fetch("/api/hollow-purple/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: target })
+    });
+    const data = await res.json();
+    statusEl.innerText = `[+] HOLLOW PURPLE COMPLETADO — Riesgo: ${data.phases.purple_correlation.risk_index.risk_level} | Postura: ${data.phases.six_eyes_synthesis.posture_assessment}`;
+  } catch (e) {
+    statusEl.innerText = `Error durante la ejecución: ${e}`;
+  }
+}
