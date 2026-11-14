@@ -24,16 +24,33 @@ Copia y pega la caja completa correspondiente a tu sistema operativo directament
 
 ### A. ANDROID (TERMUX) — COPIAR Y PEGAR EN 1 SOLA CAJA
 ```bash
-pkg update -y && pkg upgrade -y && pkg install -y python git curl wget openssl clang libffi make binutils && git clone https://github.com/TakizawaXD/Indra.git && cd Indra && pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && chmod +x *.sh && bash start.sh
+pkg update -y
+pkg upgrade -y
+pkg install -y python git curl wget openssl clang libffi make binutils
+git clone https://github.com/TakizawaXD/Indra.git
+cd Indra
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+chmod +x *.sh
+bash start.sh
 ```
 
 *(Una vez iniciado, accede al Dashboard Web en `http://127.0.0.1:8000` o abre la CLI interactiva con `python -m terminal.shell`)*
 
 ---
 
-### B. LINUX (DEBIAN / UBUNTU / KALI / ARCH / FEDORA) — COPIAR Y PEGAR EN 1 SOLA CAJA
+### B. LINUX (DEBIAN / UBUNTU / KALI) — COPIAR Y PEGAR EN 1 SOLA CAJA
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip python3-venv git curl wget build-essential libssl-dev libffi-dev || sudo pacman -Sy --noconfirm python python-pip git curl wget base-devel || sudo dnf install -y python3 python3-pip git curl wget gcc && git clone https://github.com/TakizawaXD/Indra.git && cd Indra && python3 -m venv venv && source venv/bin/activate && pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && chmod +x *.sh && bash start.sh
+sudo apt update -y
+sudo apt install -y python3 python3-pip python3-venv git curl wget build-essential libssl-dev libffi-dev
+git clone https://github.com/TakizawaXD/Indra.git
+cd Indra
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+chmod +x *.sh
+bash start.sh
 ```
 
 *(Una vez iniciado, accede al Dashboard Web en `http://127.0.0.1:8000` o entra a la terminal interactiva con `python3 -m terminal.shell`)*
@@ -41,8 +58,12 @@ sudo apt update && sudo apt install -y python3 python3-pip python3-venv git curl
 ---
 
 ### C. WINDOWS (POWERSHELL / CMD) — COPIAR Y PEGAR EN 1 SOLA CAJA
-```powershell
-git clone https://github.com/TakizawaXD/Indra.git; cd Indra; python -m pip install --upgrade pip setuptools wheel; python -m pip install -r requirements.txt; .\start.bat
+```cmd
+git clone https://github.com/TakizawaXD/Indra.git
+cd Indra
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+start.bat
 ```
 
 ---
