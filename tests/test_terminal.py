@@ -128,6 +128,25 @@ class TestTerminalInterface(unittest.TestCase):
         self.assertTrue(stop["ok"], stop["message"])
         self.assertFalse(api_server.is_running)
 
+    def test_termux_responsive_layout(self):
+        from terminal.formatter import is_termux, is_compact_screen, print_banner
+        from terminal.menu import render_menu, MAIN_MENU
+        from terminal.guides import print_module_guide, print_guide_index
+
+        with mock.patch("terminal.formatter.get_terminal_width", return_value=50):
+            with mock.patch("terminal.formatter.is_termux", return_value=True):
+                self.assertTrue(is_compact_screen())
+                with formatter.console.capture() as capture:
+                    print_banner()
+                    render_menu(MAIN_MENU, is_root=True)
+                    print_module_guide("blue")
+                    print_guide_index()
+                out = capture.get()
+                self.assertIn("TERMUX", out)
+                self.assertIn("Panel de control", out)
+                self.assertIn("PASOS OPERATIVOS", out)
+                self.assertIn("BLUE", out)
+
 
 if __name__ == "__main__":
     unittest.main()

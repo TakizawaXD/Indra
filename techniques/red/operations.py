@@ -35,6 +35,27 @@ class RedOperations:
         "javascript:/*infinity*/"
     ]
 
+    # Security headers evaluated during a deep web audit, with the weight of their absence.
+    SECURITY_HEADERS = {
+        "strict-transport-security": 15,
+        "content-security-policy": 20,
+        "x-content-type-options": 10,
+        "x-frame-options": 10,
+        "referrer-policy": 5,
+        "permissions-policy": 5,
+    }
+
+    # Read-only existence probes for commonly exposed sensitive artifacts (GET only, never modified).
+    SENSITIVE_PATHS = [
+        "/.env", "/.git/config", "/.git/HEAD", "/wp-config.php.bak", "/config.php.bak",
+        "/backup.zip", "/backup.sql", "/db.sql", "/.aws/credentials", "/phpinfo.php",
+        "/server-status", "/actuator/health", "/actuator/env", "/.DS_Store",
+        "/robots.txt", "/admin/", "/.svn/entries", "/web.config", "/id_rsa",
+    ]
+
+    # Reflected-XSS canary that is harmless if reflected (comment node, no execution sink needed to detect).
+    XSS_CANARY = "gojoinfxss<svg/onload=1>"
+
     @staticmethod
     def audit_password_strength(password: str) -> Dict[str, Any]:
         """Calculates password entropy, complexity, and common vulnerability flags."""
@@ -164,6 +185,179 @@ class RedOperations:
             "indication_of_sqli": vulnerable,
             "details": responses
         }
+
+    @classmethod
+    async def audit_security_headers(cls, target_url: str, project_id: Optional[int] = None) -> Dict[str, Any]:
+        """Scores a target's HTTP security headers and cookie flags (read-only GET)."""
+        from urllib.parse import urlparse
+        hostname = urlparse(target_url).hostname or target_url
+        TargetAuthorizer.assert_authorized(hostname, project_id=project_id)
+
+        missing, present, weak = [], [], []
+        penalty = 0
+        cookie_issues = []
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=5.0, follow_redirects=True) as client:
+                resp = await client.get(target_url)
+            lowered = {k.lower(): v for k, v in resp.headers.items()}
+            for header, weight in cls.SECURITY_HEADERS.items():
+                if header in lowered:
+                    present.append(header)
+                else:
+                    missing.append(header)
+                    penalty += weight
+            # Cookie flag inspection
+            for cookie in resp.headers.get_list("set-cookie") if hasattr(resp.headers, "get_list") else []:
+                low = cookie.lower()
+                if "secure" not in low:
+                    cookie_issues.append("cookie sin Secure")
+                if "httponly" not in low:
+                    cookie_issues.append("cookie sin HttpOnly")
+                if "samesite" not in low:
+                    cookie_issues.append("cookie sin SameSite")
+            server = lowered.get("server")
+            if server and any(c.isdigit() for c in server):
+                weak.append(f"Server revela versión: {server}")
+                penalty += 5
+        except Exception as e:
+            return {"target": target_url, "error": str(e)}
+
+        score = min(100, penalty)
+        if missing:
+            cls._register_vulnerability(
+                title=f"Cabeceras de seguridad ausentes en {hostname}",
+                severity="MEDIUM" if score < 40 else "HIGH",
+                target=target_url,
+                description=f"Faltan cabeceras: {', '.join(missing)}. Problemas de cookies: {', '.join(set(cookie_issues)) or 'ninguno'}.",
+                mitigation="Añadir HSTS, CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy y flags Secure/HttpOnly/SameSite.",
+            )
+        return {
+            "target": target_url,
+            "present_headers": present,
+            "missing_headers": missing,
+            "weaknesses": weak + list(set(cookie_issues)),
+            "hardening_penalty": score,
+        }
+
+    @classmethod
+    async def probe_sensitive_paths(cls, target_url: str, project_id: Optional[int] = None) -> Dict[str, Any]:
+        """Read-only existence check for commonly exposed sensitive files (GET only, no modification)."""
+        from urllib.parse import urlparse, urljoin
+        parsed = urlparse(target_url)
+        hostname = parsed.hostname or target_url
+        TargetAuthorizer.assert_authorized(hostname, project_id=project_id)
+
+        base = f"{parsed.scheme or 'http'}://{parsed.netloc or hostname}"
+        exposed = []
+        import asyncio
+        sem = asyncio.Semaphore(8)
+
+        async def check(path: str, client):
+            url = urljoin(base + "/", path.lstrip("/"))
+            async with sem:
+                try:
+                    resp = await client.get(url)
+                    # Flag only clear exposure: a 2xx with real content (not a soft-404 page).
+                    if resp.status_code == 200 and len(resp.content) > 0:
+                        exposed.append({"path": path, "status": resp.status_code, "bytes": len(resp.content)})
+                except Exception:
+                    pass
+
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=4.0, follow_redirects=False) as client:
+                await asyncio.gather(*[check(p, client) for p in cls.SENSITIVE_PATHS])
+        except Exception as e:
+            return {"target": base, "error": str(e)}
+
+        sensitive = [e for e in exposed if e["path"] not in ("/robots.txt",)]
+        if sensitive:
+            cls._register_vulnerability(
+                title=f"Archivos sensibles expuestos en {hostname}",
+                severity="HIGH",
+                target=base,
+                description=f"Accesibles sin autenticación: {', '.join(e['path'] for e in sensitive)}",
+                mitigation="Bloquear o eliminar estos recursos del servidor web y restringir el acceso por configuración.",
+            )
+        return {"target": base, "paths_tested": len(cls.SENSITIVE_PATHS), "exposed": exposed}
+
+    @classmethod
+    async def probe_reflected_xss(cls, target_url: str, param_name: str, project_id: Optional[int] = None) -> Dict[str, Any]:
+        """Sends a harmless canary and checks whether it is reflected unencoded (non-destructive GET)."""
+        from urllib.parse import urlparse
+        hostname = urlparse(target_url).hostname or target_url
+        TargetAuthorizer.assert_authorized(hostname, project_id=project_id)
+
+        reflected_raw = False
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=4.0, follow_redirects=True) as client:
+                resp = await client.get(target_url, params={param_name: cls.XSS_CANARY})
+            reflected_raw = cls.XSS_CANARY in resp.text  # unencoded reflection = likely XSS
+        except Exception as e:
+            return {"target": target_url, "parameter": param_name, "error": str(e)}
+
+        if reflected_raw:
+            cls._register_vulnerability(
+                title=f"XSS reflejado probable en parámetro '{param_name}'",
+                severity="HIGH",
+                target=target_url,
+                description=f"El canario '{cls.XSS_CANARY}' se reflejó sin codificar en la respuesta.",
+                mitigation="Codificar la salida según contexto (HTML/atributo/JS) y aplicar una CSP estricta.",
+            )
+        return {"target": target_url, "parameter": param_name, "reflected_unencoded": reflected_raw}
+
+    @classmethod
+    async def deep_web_audit(cls, target_url: str, param_name: Optional[str] = None, project_id: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Runs the full non-destructive offensive audit chain against an AUTHORIZED target:
+        security headers, cookie flags, HTTP methods, sensitive-path exposure and
+        (if a parameter is given) boolean SQLi + reflected-XSS canaries.
+        Aggregates every finding into a single prioritized risk score.
+        """
+        from urllib.parse import urlparse
+        hostname = urlparse(target_url).hostname or target_url
+        TargetAuthorizer.assert_authorized(hostname, project_id=project_id)
+
+        findings: Dict[str, Any] = {"target": target_url}
+        score = 0
+
+        headers = await cls.audit_security_headers(target_url, project_id=project_id)
+        findings["security_headers"] = headers
+        score += min(40, headers.get("hardening_penalty", 0) // 2)
+
+        methods = await cls.audit_http_methods(target_url, project_id=project_id)
+        findings["http_methods"] = methods
+        if methods.get("is_vulnerable"):
+            score += 15
+
+        paths = await cls.probe_sensitive_paths(target_url, project_id=project_id)
+        findings["sensitive_paths"] = paths
+        score += 20 * len([p for p in paths.get("exposed", []) if p["path"] != "/robots.txt"])
+
+        if param_name:
+            sqli = await cls.probe_non_destructive_sqli(target_url, param_name, project_id=project_id)
+            findings["sqli"] = sqli
+            if sqli.get("indication_of_sqli"):
+                score += 30
+            xss = await cls.probe_reflected_xss(target_url, param_name, project_id=project_id)
+            findings["reflected_xss"] = xss
+            if xss.get("reflected_unencoded"):
+                score += 25
+
+        score = min(100, score)
+        level = "CRITICAL" if score >= 70 else "HIGH" if score >= 45 else "MEDIUM" if score >= 20 else "LOW"
+        findings["risk_score"] = score
+        findings["risk_level"] = level
+
+        event_bus.emit(SecurityEventPayload(
+            event_type=EventType.AUDIT_COMPLETED,
+            origin_module="RED",
+            category="DEEP_WEB_AUDIT",
+            severity="HIGH" if score >= 45 else "INFO",
+            description=f"Auditoría profunda sobre {target_url} completada. Riesgo {level} ({score}/100).",
+            target=target_url,
+            evidence={"risk_score": score},
+        ))
+        return findings
 
     @classmethod
     def execute_defensive_countermeasure(cls, source_ip: str, reason: str):

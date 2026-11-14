@@ -30,6 +30,7 @@ from network.diagnostics import NetworkDiagnostics
 from network.mapper import NetworkMapper
 from network.subnet import SubnetCalculator
 from network.dns import DNSAnalyzer
+from network.ports import TOP_PORTS
 from ip_intelligence.lookup import IPLookupEngine
 from ip_intelligence.logger import IPLoggerService
 from laboratory.web_lab import AttackLabSimulator
@@ -178,18 +179,26 @@ class GojoCommandHandler:
             return
         rest = args[1:] if args and args[0].lower() == "scan" else args
         if not rest:
-            print_warning("Usage: blue scan <target> [ports...]")
+            print_warning("Usage: blue scan <target> [ports...|top]")
             return
         target = rest[0]
-        try:
-            ports = sorted({int(p) for p in rest[1:]}) or None
-        except ValueError:
-            ports = [-1]
+        extra = rest[1:]
+        deep = False
+        if extra and extra[0].lower() in ("top", "deep", "full"):
+            ports = list(TOP_PORTS)
+            deep = True
+            extra = extra[1:]
+        else:
+            try:
+                ports = sorted({int(p) for p in extra}) or None
+            except ValueError:
+                ports = [-1]
         if ports and any(p < 1 or p > 65535 for p in ports):
             print_error("Ports must be integers between 1 and 65535.")
             return
 
-        print_info(f"Initiating Blue Reconnaissance on: {target}...")
+        scope = f"{len(ports)} puertos (barrido profundo)" if deep else (f"{len(ports)} puertos" if ports else "puertos comunes")
+        print_info(f"Initiating Blue Reconnaissance on: {target} [{scope}]...")
         try:
             results = asyncio.run(blue_recon.scan_target_ports_and_save(target, ports=ports))
         except Exception as e:
@@ -198,8 +207,16 @@ class GojoCommandHandler:
         if not results:
             print_info("No open TCP ports detected on this target.")
             return
-        rows = [[str(r["port"]), r["protocol"], r["state"], r["service"], r["banner"] or ""] for r in results]
-        render_table(f"BLUE RECON RESULTS: {target}", ["Port", "Proto", "State", "Service", "Banner"], rows, style="blue")
+        rows = []
+        risky = 0
+        for r in results:
+            is_risky = r.get("risk") == "HIGH"
+            risky += 1 if is_risky else 0
+            flag = "[bold red]ALTO[/bold red]" if is_risky else "info"
+            rows.append([str(r["port"]), r["service"], r.get("version") or "-", flag, r["banner"] or ""])
+        render_table(f"BLUE RECON: {target}", ["Port", "Service", "Version", "Riesgo", "Banner"], rows, style="blue", markup=True)
+        if risky:
+            print_warning(f"{risky} puerto(s) de alto riesgo expuestos. Revisa exposición en red y considera 'infinity ban' / cierre.")
 
     @classmethod
     def cmd_red(cls, args: List[str]):
@@ -231,8 +248,39 @@ class GojoCommandHandler:
                 print_warning(f"Dangerous Methods Exposed: {res['insecure_methods_exposed']}")
             else:
                 print_success("No dangerous HTTP methods exposed.")
+        elif sub == "deep" and len(args) > 1:
+            cls.cmd_red_deep(args[1], args[2] if len(args) > 2 else None)
         else:
-            print_warning("Usage: red audit pass <password> | red audit-methods <url>")
+            print_warning("Usage: red audit pass <password> | red audit-methods <url> | red deep <url> [parametro]")
+
+    @classmethod
+    def cmd_red_deep(cls, url: str, param: str = None):
+        print_info(f"Auditoría ofensiva profunda (no destructiva) sobre: {url}...")
+        if param:
+            print_info(f"Probando el parámetro '{param}' con sondas SQLi booleanas y canario XSS.")
+        try:
+            res = asyncio.run(red_operations.deep_web_audit(url, param_name=param))
+        except Exception as e:
+            print_error(f"Deep audit error: {e}")
+            return
+
+        level = res.get("risk_level", "LOW")
+        style = "red" if level in ("HIGH", "CRITICAL") else "yellow" if level == "MEDIUM" else "green"
+        headers = res.get("security_headers", {})
+        paths = res.get("sensitive_paths", {})
+        rows = [
+            ["Riesgo global", f"[bold {style}]{res.get('risk_score', 0)}/100 ({level})[/bold {style}]"],
+            ["Cabeceras ausentes", ", ".join(headers.get("missing_headers", [])) or "ninguna"],
+            ["Debilidades", ", ".join(headers.get("weaknesses", [])) or "ninguna"],
+            ["Métodos HTTP peligrosos", ", ".join(res.get("http_methods", {}).get("insecure_methods_exposed", [])) or "ninguno"],
+            ["Archivos sensibles expuestos", ", ".join(e["path"] for e in paths.get("exposed", []) if e["path"] != "/robots.txt") or "ninguno"],
+        ]
+        if "sqli" in res:
+            rows.append(["Indicio de SQLi", "SÍ" if res["sqli"].get("indication_of_sqli") else "no"])
+        if "reflected_xss" in res:
+            rows.append(["XSS reflejado", "SÍ" if res["reflected_xss"].get("reflected_unencoded") else "no"])
+        render_table(f"RED DEEP AUDIT: {url}", ["Hallazgo", "Resultado"], rows, style=style, markup=True)
+        print_info("Todos los hallazgos quedaron catalogados. Revisa 'purple risk' y 'report generate'.")
 
     @classmethod
     def cmd_purple(cls, args: List[str]):

@@ -11,7 +11,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from terminal.formatter import console
+from terminal.formatter import console, is_compact_screen, get_terminal_width
 
 # (key, question, default) — default None means the value is required
 Param = Tuple[str, str, Optional[str]]
@@ -62,6 +62,8 @@ MAIN_MENU = _m(
                  [("target", "Objetivo autorizado", "127.0.0.1")]),
         MenuItem("Escanear puertos específicos", "blue scan {target} {ports}",
                  [("target", "Objetivo autorizado", "127.0.0.1"), ("ports", "Puertos separados por espacio (ej. 22 80 443)", None)]),
+        MenuItem("Barrido profundo (puertos TOP + versión + riesgo)", "blue scan {target} top",
+                 [("target", "Objetivo autorizado", "127.0.0.1")]),
         MenuItem("Auditoría web (cabeceras, tecnologías, TLS)", "blue web {url}",
                  [("url", "URL autorizada (ej. http://127.0.0.1:8000)", None)]),
     )),
@@ -72,6 +74,8 @@ MAIN_MENU = _m(
                  [("password", "Contraseña a evaluar", None)]),
         MenuItem("Detectar métodos HTTP peligrosos", "red audit-methods {url}",
                  [("url", "URL autorizada", None)]),
+        MenuItem("Auditoría ofensiva profunda (todo en uno)", "red deep {url} {param}",
+                 [("url", "URL autorizada", None), ("param", "Parámetro a inyectar (vacío = omitir)", "")]),
     )),
     MenuItem("Purple — Riesgo, cuarentena e informes", tag="AMBAS", submenu=_m(
         "PURPLE — INTELIGENCIA", "magenta",
@@ -154,19 +158,42 @@ LOCKED_MENU = _m(
 
 
 def render_menu(menu: Menu, is_root: bool) -> None:
-    table = Table(show_header=False, box=None, padding=(0, 2))
-    table.add_column("#", style=f"bold {menu.style}", justify="right")
-    table.add_column("Opción")
-    table.add_column("Tipo")
-    for idx, item in enumerate(menu.items, start=1):
-        label = Text(item.label)
-        if item.submenu:
-            label.append("  ›", style="dim")
-        tag = Text(f"[{item.tag}]", style=TAG_STYLES.get(item.tag, "dim")) if item.tag else Text("")
-        table.add_row(str(idx), label, tag)
-    table.add_row("0", Text("Salir" if is_root else "Volver", style="dim"), Text(""))
-    console.print(Panel(table, title=f"[bold {menu.style}]{menu.title}[/bold {menu.style}]", border_style=menu.style))
-    console.print("[dim]Escribe el número de la opción (o un comando directo, p. ej. 'blue scan 127.0.0.1').[/dim]")
+    compact = is_compact_screen()
+    width = get_terminal_width()
+
+    if compact:
+        # Responsive compact layout for Termux and mobile portrait viewports
+        table = Table(show_header=False, box=None, padding=(0, 1), expand=True)
+        table.add_column("#", style=f"bold {menu.style}", justify="right", width=3)
+        table.add_column("Opción", overflow="fold")
+        for idx, item in enumerate(menu.items, start=1):
+            label = Text(item.label)
+            if item.submenu:
+                label.append(" ›", style="dim")
+            if item.tag:
+                tag_style = TAG_STYLES.get(item.tag, "dim")
+                tag_label = item.tag[:3] if width < 55 else item.tag
+                label.append(f" [{tag_label}]", style=tag_style)
+            table.add_row(str(idx), label)
+        table.add_row("0", Text("Salir" if is_root else "Volver", style="dim"))
+
+        panel_title = menu.title.split(" — ")[0] if width < 55 else menu.title
+        console.print(Panel(table, title=f"[bold {menu.style}]{panel_title}[/bold {menu.style}]", border_style=menu.style, padding=(0, 1)))
+        console.print("[dim]Elige un número o escribe un comando directo.[/dim]")
+    else:
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column("#", style=f"bold {menu.style}", justify="right")
+        table.add_column("Opción")
+        table.add_column("Tipo")
+        for idx, item in enumerate(menu.items, start=1):
+            label = Text(item.label)
+            if item.submenu:
+                label.append("  ›", style="dim")
+            tag = Text(f"[{item.tag}]", style=TAG_STYLES.get(item.tag, "dim")) if item.tag else Text("")
+            table.add_row(str(idx), label, tag)
+        table.add_row("0", Text("Salir" if is_root else "Volver", style="dim"), Text(""))
+        console.print(Panel(table, title=f"[bold {menu.style}]{menu.title}[/bold {menu.style}]", border_style=menu.style))
+        console.print("[dim]Escribe el número de la opción (o un comando directo, p. ej. 'blue scan 127.0.0.1').[/dim]")
 
 
 def build_command(item: MenuItem, ask: Callable[[str], str]) -> Optional[str]:

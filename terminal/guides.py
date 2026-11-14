@@ -10,7 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from terminal.formatter import console
+from terminal.formatter import console, is_compact_screen, get_terminal_width
 
 GUIDES: Dict[str, Dict] = {
     "infinity": {
@@ -203,47 +203,84 @@ GUIDES: Dict[str, Dict] = {
 
 
 def print_module_guide(module_key: str):
-    """Prints the comprehensive guide for a specific module."""
+    """Prints the comprehensive guide for a specific module, adapting responsively to screen size."""
     guide = GUIDES.get(module_key.lower())
     if not guide:
         console.print(f"[bold red][-][/bold red] No existe guia para el modulo: '{module_key}'.")
         console.print(f"[dim]Modulos disponibles: {', '.join(GUIDES.keys())}[/dim]")
         return
 
-    table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Paso", style=f"bold {guide['style']}", width=32)
-    table.add_column("Instruccion", style="white")
+    compact = is_compact_screen()
+    width = get_terminal_width()
 
-    for step, desc in guide["steps"]:
-        table.add_row(step, desc)
+    if compact:
+        # Responsive stacked steps for mobile Termux
+        body = Text()
+        body.append(f"{guide['description']}\n\n", style="white")
+        body.append("PASOS OPERATIVOS:\n", style=f"bold {guide['style']}")
+        for step, desc in guide["steps"]:
+            body.append(f"[*] {step}\n", style=f"bold {guide['style']}")
+            body.append(f"    {desc}\n", style="dim")
 
-    content = Text()
-    content.append(guide["description"] + "\n\n", style="bold white")
-    content.append("CONCEPTO TECNICO:\n", style=f"bold {guide['style']}")
-    content.append(guide["concept"] + "\n\n", style="dim")
-    content.append("INSTRUCCIONES PASO A PASO:\n", style=f"bold {guide['style']}")
+        title_text = f"{guide['title'].replace('GUIA DE USO: ', '')} [{guide['tag'][:3]}]"
+        panel = Panel(
+            body,
+            title=f"[bold {guide['style']}]{title_text}[/bold {guide['style']}]",
+            subtitle=f"[dim]Ej: {guide['example']}[/dim]",
+            border_style=guide["style"],
+            padding=(0, 1),
+            expand=False,
+        )
+        console.print(panel)
+    else:
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("Paso", style=f"bold {guide['style']}", width=32)
+        table.add_column("Instruccion", style="white")
 
-    panel = Panel(
-        table,
-        title=f"[bold {guide['style']}]{guide['title']}[/bold {guide['style']}] [{guide['tag']}]",
-        subtitle=f"[dim]Ejemplo: {guide['example']}[/dim]",
-        border_style=guide["style"]
-    )
-    console.print(panel)
+        for step, desc in guide["steps"]:
+            table.add_row(step, desc)
+
+        panel = Panel(
+            table,
+            title=f"[bold {guide['style']}]{guide['title']}[/bold {guide['style']}] [{guide['tag']}]",
+            subtitle=f"[dim]Ejemplo: {guide['example']}[/dim]",
+            border_style=guide["style"]
+        )
+        console.print(panel)
 
 
 def print_guide_index():
-    """Prints the full index of all available guides."""
-    table = Table(title="INDRA INFINITY SECURITY (INFINITY) — MANUAL OPERATIVO & GUIAS", show_header=True, header_style="bold cyan", border_style="cyan")
-    table.add_column("#", style="bold cyan", justify="right", width=4)
-    table.add_column("Modulo / Tecnica", style="bold white", width=22)
-    table.add_column("Tipo", width=12)
-    table.add_column("Comando Directo", style="cyan", width=26)
-    table.add_column("Descripcion", style="dim")
+    """Prints the full index of all available guides, adaptively formatted."""
+    compact = is_compact_screen()
 
-    for idx, (k, g) in enumerate(GUIDES.items(), start=1):
-        tag_color = "cyan" if g["tag"] == "DEFENSA" else "red" if g["tag"] == "ATAQUE" else "magenta" if g["tag"] == "AMBAS" else "white"
-        table.add_row(str(idx), k.upper(), f"[{tag_color}][{g['tag']}][/{tag_color}]", f"guide {k}", g["description"])
+    if compact:
+        table = Table(
+            title="INDRA INFINITY — GUIAS DISPONIBLES",
+            show_header=True,
+            header_style="bold cyan",
+            border_style="cyan",
+            padding=(0, 1),
+            expand=True,
+        )
+        table.add_column("#", style="bold cyan", justify="right", width=3)
+        table.add_column("Tecnica / Comando", style="bold white", overflow="fold")
+        for idx, (k, g) in enumerate(GUIDES.items(), start=1):
+            tag_color = "cyan" if g["tag"] == "DEFENSA" else "red" if g["tag"] == "ATAQUE" else "magenta" if g["tag"] == "AMBAS" else "white"
+            row_label = f"{k.upper()} [{tag_color}][{g['tag'][:3]}][/{tag_color}]  -> guide {k}"
+            table.add_row(str(idx), row_label)
+        console.print(table)
+        console.print("[dim]Escribe: [bold white]guide <modulo>[/bold white] (ej. 'guide blue').[/dim]")
+    else:
+        table = Table(title="INDRA INFINITY SECURITY (INFINITY) — MANUAL OPERATIVO & GUIAS", show_header=True, header_style="bold cyan", border_style="cyan")
+        table.add_column("#", style="bold cyan", justify="right", width=4)
+        table.add_column("Modulo / Tecnica", style="bold white", width=22)
+        table.add_column("Tipo", width=12)
+        table.add_column("Comando Directo", style="cyan", width=26)
+        table.add_column("Descripcion", style="dim")
 
-    console.print(table)
-    console.print("[dim]Para consultar una guia especifica, escribe: [bold white]guide <modulo>[/bold white] (ej. 'guide blue' o 'guide hollow-purple').[/dim]")
+        for idx, (k, g) in enumerate(GUIDES.items(), start=1):
+            tag_color = "cyan" if g["tag"] == "DEFENSA" else "red" if g["tag"] == "ATAQUE" else "magenta" if g["tag"] == "AMBAS" else "white"
+            table.add_row(str(idx), k.upper(), f"[{tag_color}][{g['tag']}][/{tag_color}]", f"guide {k}", g["description"])
+
+        console.print(table)
+        console.print("[dim]Para consultar una guia especifica, escribe: [bold white]guide <modulo>[/bold white] (ej. 'guide blue' o 'guide hollow-purple').[/dim]")

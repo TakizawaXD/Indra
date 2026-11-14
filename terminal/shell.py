@@ -12,7 +12,7 @@ import logging
 import sys
 from typing import List
 
-from terminal.formatter import print_banner, console
+from terminal.formatter import print_banner, console, is_compact_screen
 from terminal.commands import GojoCommandHandler
 from terminal.menu import MAIN_MENU, LOCKED_MENU, Menu, build_command, render_menu
 from terminal.server_control import api_server
@@ -160,11 +160,16 @@ def run_shell(io: TerminalIO = None):
                 render_menu(current, is_root=(not is_licensed or len(menu_stack) == 1))
             show_menu = True
 
+            compact = is_compact_screen()
             if is_licensed:
-                crumbs = " › ".join(m.title.split(" — ")[0].title() for m in menu_stack[1:])
-                prompt_text = f"indra-infinity [{crumbs}] > " if crumbs else "indra-infinity > "
+                if compact:
+                    crumb = menu_stack[-1].title.split(" — ")[0].title()[:12] if len(menu_stack) > 1 else ""
+                    prompt_text = f"indra [{crumb}] > " if crumb else "indra > "
+                else:
+                    crumbs = " › ".join(m.title.split(" — ")[0].title() for m in menu_stack[1:])
+                    prompt_text = f"indra-infinity [{crumbs}] > " if crumbs else "indra-infinity > "
             else:
-                prompt_text = "indra-infinity [BLOQUEADO] > "
+                prompt_text = "indra [BLOQ] > " if compact else "indra-infinity [BLOQUEADO] > "
 
             user_input = io.prompt(prompt_text).strip()
             if not user_input:

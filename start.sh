@@ -7,6 +7,9 @@
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
+export PYTHONIOENCODING=utf-8
+export LANG=C.UTF-8
+
 # Acquire wake lock in Termux if available
 if command -v termux-wake-lock &> /dev/null; then
     termux-wake-lock

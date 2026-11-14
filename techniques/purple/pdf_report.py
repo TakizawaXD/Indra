@@ -56,6 +56,7 @@ class IndraReportGenerator:
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Informe Ejecutivo de Seguridad — Indra</title>
   <style>
     @page {{ size: A4; margin: 20mm; }}
@@ -169,6 +170,13 @@ class IndraReportGenerator:
       font-weight: 700;
       cursor: pointer;
       margin-bottom: 1.5rem;
+    }}
+    @media (max-width: 768px) {{
+      body {{ padding: 1rem; font-size: 14px; }}
+      .header-bar {{ flex-direction: column; align-items: flex-start; gap: 0.5rem; }}
+      .meta-grid {{ grid-template-columns: 1fr; }}
+      .signature-row {{ flex-direction: column; align-items: flex-start; gap: 1.5rem; }}
+      table {{ display: block; overflow-x: auto; white-space: nowrap; }}
     }}
     @media print {{
       .print-btn {{ display: none; }}

@@ -69,14 +69,32 @@ class InfinityShield:
     Filters traffic on services managed by Gojo Infinity.
     """
 
-    # Signatures for malicious application traffic
+    # Signatures for malicious application traffic.
+    # Defensive detection only: these match INCOMING hostile payloads so the Shield can drop them.
     INSPECTION_RULES = [
-        (re.compile(r"(\%27)|(\')|(\-\-)|(\%23)|(#)|(\bunion\b)|(\bselect\b.*\bfrom\b)", re.IGNORECASE), "SQL_INJECTION_PROBE", "HIGH"),
-        (re.compile(r"(<script.*?>)|(javascript:)|(onerror=)|(\balert\(.*?\))", re.IGNORECASE), "XSS_PAYLOAD_DETECTED", "MEDIUM"),
-        (re.compile(r"(\.\./|\.\.\\|\%2e\%2e\%2f|\%2e\%2e/)", re.IGNORECASE), "DIRECTORY_TRAVERSAL_ATTEMPT", "HIGH"),
-        (re.compile(r"(\bcmd\.exe\b|\/bin\/sh|\/bin\/bash|\bwhoami\b|\bcat\s+/etc/passwd)", re.IGNORECASE), "COMMAND_INJECTION_PROBE", "CRITICAL"),
-        (re.compile(r"(\.env(?![a-z0-9])|\.git\/config|wp-config\.php|\.htaccess)", re.IGNORECASE), "SENSITIVE_FILE_PROBING", "MEDIUM"),
+        (re.compile(r"(\%27)|(\')|(\-\-)|(\%23)|(#)|(\bunion\b)|(\bselect\b.*\bfrom\b)|(\bor\b\s+\d+=\d+)|(\bsleep\s*\()|(\bbenchmark\s*\()|(\bwaitfor\s+delay\b)", re.IGNORECASE), "SQL_INJECTION_PROBE", "HIGH"),
+        (re.compile(r"(<script.*?>)|(javascript:)|(onerror\s*=)|(onload\s*=)|(onmouseover\s*=)|(\balert\s*\()|(\bprompt\s*\()|(document\.cookie)|(<svg[^>]*on)", re.IGNORECASE), "XSS_PAYLOAD_DETECTED", "MEDIUM"),
+        (re.compile(r"(\.\./|\.\.\\|\%2e\%2e\%2f|\%2e\%2e/|\%2e\%2e\\)|(/etc/passwd)|(/etc/shadow)|(\bboot\.ini\b)|(win\.ini)", re.IGNORECASE), "DIRECTORY_TRAVERSAL_ATTEMPT", "HIGH"),
+        (re.compile(r"(\bcmd\.exe\b)|(\/bin\/sh)|(\/bin\/bash)|(\bwhoami\b)|(\bcat\s+/etc/)|(\|\s*nc\b)|(;\s*(ls|id|uname|curl|wget)\b)|(\$\(.*\))|(`.*`)|(&&\s*(curl|wget|bash|sh)\b)", re.IGNORECASE), "COMMAND_INJECTION_PROBE", "CRITICAL"),
+        (re.compile(r"(\.env(?![a-z0-9]))|(\.git\/config)|(wp-config\.php)|(\.htaccess)|(/\.aws/)|(id_rsa)|(\.ssh/)|(\.bak(?![a-z0-9]))|(\.sql(?![a-z0-9]))|(backup\.(zip|tar|gz))", re.IGNORECASE), "SENSITIVE_FILE_PROBING", "MEDIUM"),
+        (re.compile(r"(\$\{jndi:(ldap|rmi|dns|iiop)://)", re.IGNORECASE), "LOG4SHELL_JNDI_PROBE", "CRITICAL"),
+        (re.compile(r"(\{\{.*\}\})|(\$\{.*\})|(<%=.*%>)|(#\{.*\})", re.IGNORECASE), "TEMPLATE_INJECTION_SSTI", "HIGH"),
+        (re.compile(r"(php://)|(file://)|(data://)|(expect://)|(zip://)|(phar://)", re.IGNORECASE), "PHP_WRAPPER_LFI", "HIGH"),
+        (re.compile(r"(<!entity)|(<!doctype[^>]+system)|(\bSYSTEM\s+[\"']file:)", re.IGNORECASE), "XXE_INJECTION", "HIGH"),
+        (re.compile(r"(\[\$ne\])|(\[\$gt\])|(\[\$where\])|(\{\s*\"\$ne\")|(\bthis\.password\b)", re.IGNORECASE), "NOSQL_INJECTION", "HIGH"),
+        (re.compile(r"(%0d%0a)|(\r\n(set-cookie|location|content-length):)", re.IGNORECASE), "CRLF_HEADER_INJECTION", "MEDIUM"),
+        (re.compile(r"(169\.254\.169\.254)|(/latest/meta-data/)|(metadata\.google\.internal)|(\bfd00:ec2::254\b)", re.IGNORECASE), "SSRF_METADATA_PROBE", "CRITICAL"),
+        (re.compile(r"(c99\.php)|(r57\.php)|(shell\.(php|asp|aspx|jsp))|(webshell)|(\beval\s*\(\s*(base64_decode|gzinflate))", re.IGNORECASE), "WEBSHELL_UPLOAD", "CRITICAL"),
     ]
+
+    # Hostile automated scanners identified by User-Agent (logged, not blocked on their own).
+    SCANNER_UA_PATTERN = re.compile(
+        r"(sqlmap)|(nikto)|(nmap)|(masscan)|(nuclei)|(acunetix)|(nessus)|(dirbuster)|(gobuster)|(wpscan)|(havij)|(zgrab)|(hydra)",
+        re.IGNORECASE,
+    )
+
+    # Ban durations escalate with each repeated offense from the same IP (minutes).
+    BAN_ESCALATION_MINUTES = [30, 120, 720, 1440, 10080]  # 30m -> 2h -> 12h -> 1d -> 1 week
 
     # Minimum seconds between two rate-limit alerts for the same IP (avoids event storms).
     RATE_LIMIT_ALERT_INTERVAL = 60
@@ -86,9 +104,15 @@ class InfinityShield:
             max_requests=settings.RATE_LIMIT_REQUESTS_PER_MINUTE, window_seconds=60
         )
         self.failed_attempts: Dict[str, int] = defaultdict(int)
+        self.offense_history: Dict[str, int] = defaultdict(int)  # total bans per IP -> escalation
         self._last_rate_alert: Dict[str, float] = {}
         self.total_inspections: int = 0
         self.total_blocked: int = 0
+
+    def _escalated_ban_minutes(self, client_ip: str) -> int:
+        """Returns a longer ban the more times an IP has already been banned."""
+        tier = min(self.offense_history[client_ip], len(self.BAN_ESCALATION_MINUTES) - 1)
+        return self.BAN_ESCALATION_MINUTES[tier]
 
     def inspect_request(
         self,
@@ -139,12 +163,18 @@ class InfinityShield:
                 ))
             return False, f"Too Many Requests. Infinity Shield rate limit in effect (Retry in {retry_after}s)", "RATE_LIMIT"
 
-        # LAYER 3: Payload & URL Traversal Inspection (raw + URL-decoded)
-        raw_payload = f"{path}?{query_string} {body_sample}"
+        # LAYER 3: Payload & URL Traversal Inspection (raw + URL-decoded, including headers)
+        user_agent = ""
+        if headers:
+            user_agent = headers.get("user-agent") or headers.get("User-Agent") or ""
+        raw_payload = f"{method} {path}?{query_string} {body_sample} {user_agent}"
         try:
             decoded_payload = unquote_plus(raw_payload)
         except Exception:
             decoded_payload = raw_payload
+
+        # Known hostile scanner fingerprint raises the offense weight immediately.
+        scanner_hit = bool(user_agent and self.SCANNER_UA_PATTERN.search(user_agent))
 
         for pattern, attack_type, severity in self.INSPECTION_RULES:
             if pattern.search(raw_payload) or pattern.search(decoded_payload):
@@ -159,20 +189,22 @@ class InfinityShield:
                     description=f"Infinity Shield neutralized {attack_type} from {client_ip} targeting {path}",
                     source_ip=client_ip,
                     target=path,
-                    evidence={"payload": raw_payload[:256]},
+                    evidence={"payload": raw_payload[:256], "scanner": scanner_hit},
                     action_taken="PAYLOAD_FILTER_403"
                 ))
 
-                # Increment suspicious attempts and ban if threshold reached.
-                # Loopback is never auto-banned so the local operator cannot be locked out.
-                self.failed_attempts[client_ip] += 1
-                if self.failed_attempts[client_ip] >= settings.MAX_LOGIN_ATTEMPTS and not is_loopback(client_ip):
-                    self.failed_attempts.pop(client_ip, None)
-                    self.ban_ip(
-                        client_ip,
-                        reason=f"Repeated {attack_type} attempts",
-                        duration_minutes=max(1, settings.IP_BAN_DURATION_SECONDS // 60)
-                    )
+                # Escalating containment. Loopback is never auto-banned (operator safety).
+                if not is_loopback(client_ip):
+                    # A CRITICAL signature (RCE, Log4Shell, SSRF to metadata, webshell) or a
+                    # known attack scanner is banned on the first hit; the rest after a threshold.
+                    self.failed_attempts[client_ip] += (3 if scanner_hit else 1)
+                    instant = severity == "CRITICAL" or scanner_hit
+                    if instant or self.failed_attempts[client_ip] >= settings.MAX_LOGIN_ATTEMPTS:
+                        minutes = self._escalated_ban_minutes(client_ip)
+                        self.offense_history[client_ip] += 1
+                        self.failed_attempts.pop(client_ip, None)
+                        reason = f"{attack_type}" + (" (scanner UA)" if scanner_hit else "")
+                        self.ban_ip(client_ip, reason=f"Auto-containment: {reason}", duration_minutes=minutes)
 
                 return False, f"Blocked by Infinity Shield: Malicious signature identified ({attack_type})", attack_type
 

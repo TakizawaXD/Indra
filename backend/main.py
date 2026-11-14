@@ -97,7 +97,8 @@ async def infinity_shield_waf_middleware(request: Request, call_next):
         client_ip=client_ip,
         path=path,
         method=method,
-        query_string=query
+        query_string=query,
+        headers={"user-agent": request.headers.get("user-agent", "")},
     )
 
     if not is_allowed:
