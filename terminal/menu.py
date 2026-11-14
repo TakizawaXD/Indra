@@ -52,6 +52,7 @@ MAIN_MENU = _m(
         "INFINITY SHIELD", "cyan",
         MenuItem("Guia de uso de Infinity Shield", "guide infinity"),
         MenuItem("Estado del escudo y reglas activas", "infinity status"),
+        MenuItem("Firmas de ataque detectables + baneo escalado", "infinity signatures"),
         MenuItem("Bloquear una IP (60 min)", "infinity ban {ip}", [("ip", "Dirección IP a bloquear", None)]),
         MenuItem("Desbloquear una IP", "infinity unban {ip}", [("ip", "Dirección IP a desbloquear", None)]),
     )),

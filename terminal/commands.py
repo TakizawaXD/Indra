@@ -109,9 +109,10 @@ class GojoCommandHandler:
             ["monitor [segundos]", "[bold purple][AMBAS][/bold purple]", "Panel en vivo con refresco automático (Ctrl+C para salir)"],
             ["status", "[bold purple][AMBAS][/bold purple]", "Telemetría en tiempo real de CPU, memoria y módulos activos"],
             ["infinity [status|rules|ban <ip>|unban <ip>]", "[bold cyan][DEFENSA][/bold cyan]", "Firewall WAF multicapa, rate limiter y bloqueo de IPs"],
-            ["blue scan <target> [ports...]", "[bold red][ATAQUE][/bold red]", "Reconocimiento y escaneo TCP de puertos y servicios"],
+            ["blue scan <target> [ports...|top]", "[bold red][ATAQUE][/bold red]", "Escaneo TCP; 'top' = barrido profundo con versión y riesgo"],
             ["blue web <url>", "[bold red][ATAQUE][/bold red]", "Auditoría web no intrusiva: cabeceras, tecnologías y TLS"],
             ["red [audit pass <clave>|audit-methods <url>]", "[bold red][ATAQUE][/bold red]", "Auditoría de fortaleza de claves y métodos HTTP"],
+            ["red deep <url> [parametro]", "[bold red][ATAQUE][/bold red]", "Auditoría ofensiva profunda no destructiva (todo en uno)"],
             ["purple [risk|quarantine|report]", "[bold purple][AMBAS][/bold purple]", "Cálculo de riesgo (0-100), bóveda de cuarentena e informes"],
             ["sixeyes [status|ask <pregunta>]", "[bold purple][AMBAS][/bold purple]", "Asesor cognitivo offline de ciberseguridad"],
             ["hollow-purple <target>", "[bold purple][AMBAS][/bold purple]", "Protocolo definitivo de convergencia en 5 fases"],
@@ -169,8 +170,13 @@ class GojoCommandHandler:
                 print_success(f"IP {ip} unbanned.")
             else:
                 print_warning(f"No active ban found for {ip}.")
+        elif sub in ("signatures", "firmas"):
+            rows = [[attack, sev] for _pat, attack, sev in infinity_shield.INSPECTION_RULES]
+            render_table("FIRMAS DE ATAQUE DETECTABLES (WAF)", ["Tipo de ataque", "Severidad"], rows, style="cyan")
+            esc = " → ".join(f"{m}m" for m in infinity_shield.BAN_ESCALATION_MINUTES)
+            print_info(f"Baneo escalado por reincidencia: {esc}. CRÍTICO y scanners conocidos se bloquean al primer intento.")
         else:
-            print_warning("Usage: infinity [status|rules|ban <ip>|unban <ip>]")
+            print_warning("Usage: infinity [status|rules|signatures|ban <ip>|unban <ip>]")
 
     @classmethod
     def cmd_blue(cls, args: List[str]):

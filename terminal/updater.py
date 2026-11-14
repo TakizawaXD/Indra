@@ -89,3 +89,4 @@ def auto_update_on_launch():
         )
     except Exception:
         pass
+

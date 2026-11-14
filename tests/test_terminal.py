@@ -75,8 +75,21 @@ class TestTerminalInterface(unittest.TestCase):
             prompt = _next
             ask = _next
 
-        # 3 = Infinity Shield, 3 = ban IP (asks the IP), 0 = back, 99 = invalid, 13 -> 2 = lab list, 0, 0 = exit
-        answers = ["3", "3", "203.0.113.44", "0", "99", "13", "2", "0", "0"]
+        # Derive menu positions dynamically so the test survives menu reordering.
+        from terminal.menu import MAIN_MENU
+
+        def option_of(menu, predicate):
+            for i, it in enumerate(menu.items, start=1):
+                if predicate(it):
+                    return str(i), it
+            raise AssertionError("menu option not found")
+
+        infinity_pos, infinity_item = option_of(MAIN_MENU, lambda it: it.submenu and "INFINITY" in it.submenu.title)
+        ban_pos, _ = option_of(infinity_item.submenu, lambda it: (it.command or "").startswith("infinity ban"))
+        lab_pos, lab_item = option_of(MAIN_MENU, lambda it: it.submenu and "LABORATORIO" in it.submenu.title)
+        labscenarios_pos, _ = option_of(lab_item.submenu, lambda it: it.command == "lab list")
+
+        answers = [infinity_pos, ban_pos, "203.0.113.44", "0", "99", lab_pos, labscenarios_pos, "0", "0"]
         with mock.patch("core.license.IndraLicenseGuard.verify_license", return_value=True):
             with formatter.console.capture() as capture:
                 run_shell(io=FakeIO(answers))
