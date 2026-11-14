@@ -42,7 +42,10 @@ echo "[*] Pinned native packages:"; sed 's/^/    /' "$CONSTRAINTS"
 if ! grep -q '^pydantic-core==' "$CONSTRAINTS"; then
     echo "[!] pydantic-core is not installed from Termux. Falling back to building it"
     echo "    with Termux's Rust toolchain (slow, several minutes)..."
-    pkg install -y rust >/dev/null 2>&1 || true
+    pkg install -y rust binutils >/dev/null 2>&1 || true
+    # maturin needs the Android API level to target aarch64-linux-android with Termux's rustc
+    export ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-$(getprop ro.build.version.sdk 2>/dev/null || echo 24)}"
+    export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}"
 fi
 
 # 1) Terminal UI first, independently, so the CLI works even if the web stack fails.
