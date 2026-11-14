@@ -40,11 +40,13 @@ class GojoEngine:
             "attack_lab": "INITIALIZING"
         }
 
-    def startup(self):
+    def startup(self) -> bool:
         """Initializes the database and wakes all subsystems."""
-        # Enforce exclusive Indra license
         from core.license import IndraLicenseGuard
-        IndraLicenseGuard.enforce_license()
+        if not IndraLicenseGuard.verify_license():
+            logger.warning("[LICENSE] Sistema iniciado en modo BLOQUEADO. Esperando: 'insertar llave'")
+            self.state = SystemState.DEGRADED
+            return False
 
         logger.info(f"Awakening {settings.APP_NAME}...")
         self.state = SystemState.STARTING
@@ -58,6 +60,7 @@ class GojoEngine:
             self.modules[mod] = "ONLINE"
 
         self.state = SystemState.ONLINE
+        return True
         logger.info(f"{settings.APP_NAME} is fully ONLINE and operational.")
 
     def shutdown(self):
