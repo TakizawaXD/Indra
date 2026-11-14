@@ -75,8 +75,8 @@ class TestTerminalInterface(unittest.TestCase):
             prompt = _next
             ask = _next
 
-        # 3 = Infinity Shield, 2 = ban IP (asks the IP), 0 = back, 99 = invalid, 13 -> 1 = lab list, 0, 0 = exit
-        answers = ["3", "2", "203.0.113.44", "0", "99", "13", "1", "0", "0"]
+        # 3 = Infinity Shield, 3 = ban IP (asks the IP), 0 = back, 99 = invalid, 13 -> 2 = lab list, 0, 0 = exit
+        answers = ["3", "3", "203.0.113.44", "0", "99", "13", "2", "0", "0"]
         with mock.patch("core.license.IndraLicenseGuard.verify_license", return_value=True):
             with formatter.console.capture() as capture:
                 run_shell(io=FakeIO(answers))

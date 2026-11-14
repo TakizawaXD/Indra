@@ -50,12 +50,14 @@ MAIN_MENU = _m(
     MenuItem("Monitor en vivo (Ctrl+C para volver)", "monitor", tag="AMBAS"),
     MenuItem("Infinity Shield — Defensa y bloqueo de IPs", tag="DEFENSA", submenu=_m(
         "INFINITY SHIELD", "cyan",
+        MenuItem("Guia de uso de Infinity Shield", "guide infinity"),
         MenuItem("Estado del escudo y reglas activas", "infinity status"),
         MenuItem("Bloquear una IP (60 min)", "infinity ban {ip}", [("ip", "Dirección IP a bloquear", None)]),
         MenuItem("Desbloquear una IP", "infinity unban {ip}", [("ip", "Dirección IP a desbloquear", None)]),
     )),
     MenuItem("Blue — Reconocimiento", tag="ATAQUE", submenu=_m(
         "BLUE — RECONOCIMIENTO", "blue",
+        MenuItem("Guia de uso de Blue Recon", "guide blue"),
         MenuItem("Escanear puertos comunes de un objetivo", "blue scan {target}",
                  [("target", "Objetivo autorizado", "127.0.0.1")]),
         MenuItem("Escanear puertos específicos", "blue scan {target} {ports}",
@@ -65,6 +67,7 @@ MAIN_MENU = _m(
     )),
     MenuItem("Red — Auditoría controlada", tag="ATAQUE", submenu=_m(
         "RED — AUDITORÍA", "red",
+        MenuItem("Guia de uso de Red Operations", "guide red"),
         MenuItem("Evaluar fortaleza de una contraseña", "red audit pass {password}",
                  [("password", "Contraseña a evaluar", None)]),
         MenuItem("Detectar métodos HTTP peligrosos", "red audit-methods {url}",
@@ -72,6 +75,7 @@ MAIN_MENU = _m(
     )),
     MenuItem("Purple — Riesgo, cuarentena e informes", tag="AMBAS", submenu=_m(
         "PURPLE — INTELIGENCIA", "magenta",
+        MenuItem("Guia de uso de Purple Intel", "guide purple"),
         MenuItem("Índice de riesgo global", "purple risk"),
         MenuItem("Bóveda de cuarentena", "purple quarantine"),
         MenuItem("Generar informe ejecutivo", "report generate"),
@@ -81,12 +85,14 @@ MAIN_MENU = _m(
              [("target", "Objetivo autorizado", "127.0.0.1")], tag="AMBAS"),
     MenuItem("Six Eyes — Asesor de seguridad", tag="AMBAS", submenu=_m(
         "SIX EYES", "cyan",
+        MenuItem("Guia de uso de Six Eyes", "guide sixeyes"),
         MenuItem("Matriz de correlación", "sixeyes status"),
         MenuItem("Hacer una pregunta al asesor", "sixeyes ask {question}",
                  [("question", "Tu pregunta (ej. ¿qué es SQL injection?)", None)]),
     )),
     MenuItem("Redes — Diagnóstico y topología", tag="DEFENSA", submenu=_m(
         "REDES", "blue",
+        MenuItem("Guia de uso de Redes", "guide network"),
         MenuItem("Diagnóstico de interfaces", "network diagnostics"),
         MenuItem("Topología de hosts y servicios", "network topology"),
         MenuItem("Calculadora de subred (CIDR)", "network subnet {cidr}", [("cidr", "Red CIDR (ej. 192.168.1.0/24)", None)]),
@@ -94,12 +100,14 @@ MAIN_MENU = _m(
     )),
     MenuItem("Inteligencia de IPs", tag="DEFENSA", submenu=_m(
         "INTELIGENCIA IP", "cyan",
+        MenuItem("Guia de uso de Inteligencia IP", "guide ip"),
         MenuItem("Consultar una IP", "ip lookup {ip}", [("ip", "Dirección IP", None)]),
         MenuItem("Historial de visitas", "ip history"),
         MenuItem("Exportar historial a CSV", "ip export"),
     )),
     MenuItem("Vulnerabilidades y CVE", tag="AMBAS", submenu=_m(
         "VULNERABILIDADES", "yellow",
+        MenuItem("Guia de uso de Vulnerabilidades", "guide vulnerability"),
         MenuItem("Vulnerabilidades catalogadas", "vulnerability"),
         MenuItem("Base CVE offline completa", "vulnerability cve"),
         MenuItem("Buscar CVE por componente", "vulnerability cve {component}",
@@ -113,6 +121,7 @@ MAIN_MENU = _m(
     )),
     MenuItem("Laboratorio de práctica (seguro, en memoria)", tag="ATAQUE", submenu=_m(
         "LABORATORIO", "green",
+        MenuItem("Guia de uso del Laboratorio", "guide lab"),
         MenuItem("Ver escenarios", "lab list"),
         MenuItem("Simular SQL Injection", "lab sqli {payload}", [("payload", "Payload", "' OR '1'='1")]),
         MenuItem("Simular XSS reflejado", "lab xss {payload}", [("payload", "Payload", "<script>alert(1)</script>")]),
@@ -126,8 +135,11 @@ MAIN_MENU = _m(
         MenuItem("Iniciar en otro puerto", "server start {port}", [("port", "Puerto", None)]),
         MenuItem("Detener servidor", "server stop"),
     )),
+    MenuItem("Actualizar sistema automaticamente (GitHub)", "update", tag="SISTEMA"),
+    MenuItem("Manual de uso y guia de cada tecnica", "guide", tag="SISTEMA"),
     MenuItem("Sistema — Estado y configuración", tag="SISTEMA", submenu=_m(
         "SISTEMA", "white",
+        MenuItem("Guia de auto-actualizacion", "guide update"),
         MenuItem("Telemetría y módulos", "status"),
         MenuItem("Configuración activa", "config"),
         MenuItem("Versión", "version"),

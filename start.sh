@@ -12,5 +12,10 @@ if command -v termux-wake-lock &> /dev/null; then
     termux-wake-lock
 fi
 
+# Auto-actualizacion automatica desde GitHub
+if [ -d ".git" ]; then
+    git pull origin main --quiet 2>/dev/null || true
+fi
+
 PY_BIN=$(command -v python3 || command -v python)
 exec "$PY_BIN" -m terminal.shell "$@"

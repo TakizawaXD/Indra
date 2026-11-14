@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  GOJO INFINITY SECURITY ∞ — UPDATE SCRIPT
+#  INDRA INFINITY SECURITY - ACTUALIZADOR AUTOMATICO (LINUX / TERMUX)
+#  Creador: Takizawa | Para: Indra
 # ==============================================================================
 
 set -e
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-echo "[*] Checking for Gojo Infinity updates..."
+echo "======================================================================"
+echo " [*] COMPROBANDO ACTUALIZACIONES DESDE GITHUB (TakizawaXD/Indra)"
+echo "======================================================================"
 
 if [ -d ".git" ]; then
-    echo "[*] Fetching latest repository updates..."
-    git pull origin main || git pull
+    echo "[*] Sincronizando codigo fuente con git pull origin main..."
+    git pull origin main || git pull || true
 fi
 
 PY_BIN=$(command -v python3 || command -v python)
-echo "[*] Upgrading dependencies..."
-$PY_BIN -m pip install -r requirements.txt --upgrade
+echo "[*] Sincronizando dependencias de Python (requirements.txt)..."
+"$PY_BIN" -m pip install -r requirements.txt --upgrade --quiet
 
-echo "[*] Applying database migrations if necessary..."
-$PY_BIN -c "from backend.database import init_db; init_db()"
-
-echo "[+] Gojo Infinity updated successfully."
+echo "======================================================================"
+echo " [+] INDRA INFINITY SECURITY ACTUALIZADO EXITOSAMENTE"
+echo "======================================================================"

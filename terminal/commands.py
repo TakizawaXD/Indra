@@ -69,6 +69,10 @@ class GojoCommandHandler:
             "monitor": lambda: cls.cmd_monitor(args),
             "server": lambda: cls.cmd_server(args),
             "config": cls.cmd_config,
+            "guide": lambda: cls.cmd_guide(args),
+            "guia": lambda: cls.cmd_guide(args),
+            "update": lambda: cls.cmd_update(args),
+            "actualizar": lambda: cls.cmd_update(args),
             "infinity": lambda: cls.cmd_infinity(args),
             "protect": lambda: cls.cmd_infinity(args),
             "firewall": lambda: cls.cmd_infinity(args),
@@ -628,3 +632,16 @@ class GojoCommandHandler:
         if res.get("error"):
             rows.append(["Error", res["error"]])
         render_table("BLUE WEB RECON", ["Propiedad", "Resultado"], rows, style="blue")
+
+    @classmethod
+    def cmd_guide(cls, args: List[str]):
+        from terminal.guides import print_module_guide, print_guide_index
+        if args:
+            print_module_guide(args[0])
+        else:
+            print_guide_index()
+
+    @classmethod
+    def cmd_update(cls, args: List[str]):
+        from terminal.updater import SystemUpdater
+        SystemUpdater.run_update(verbose=True)

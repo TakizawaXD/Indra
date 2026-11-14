@@ -17,4 +17,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [*] Comprobando actualizaciones automaticas desde GitHub...
+git pull origin main --quiet 2>nul
+if not errorlevel 1 (
+    echo [+] Sistema sincronizado con la ultima version de GitHub.
+)
+
 python -m terminal.shell
