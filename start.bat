@@ -17,9 +17,4 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [*] Iniciando INDRA INFINITY SECURITY...
-echo [*] Servidor y panel local en http://127.0.0.1:8000
-echo [*] Presiona Ctrl+C para detener el servicio.
-echo.
-
-python -m backend.main
+python -m terminal.shell

@@ -5,6 +5,7 @@ Run via: python -m terminal.shell
 """
 
 import sys
+import threading
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.styles import Style
@@ -20,7 +21,29 @@ COMMANDS_LIST = [
     "threats", "incidents", "logs", "lab", "report"
 ]
 
+def _start_background_server():
+    """Starts the web dashboard and REST API in a quiet background daemon thread."""
+    try:
+        import uvicorn
+        from core.config import settings
+        config = uvicorn.Config(
+            "backend.main:app",
+            host=settings.HOST,
+            port=settings.PORT,
+            log_level="critical",
+            proxy_headers=False,
+            access_log=False,
+        )
+        server = uvicorn.Server(config)
+        server.run()
+    except Exception:
+        pass
+
 def run_shell():
+    # Iniciar servidor web de respaldo en segundo plano sin interrumpir la terminal
+    server_thread = threading.Thread(target=_start_background_server, daemon=True)
+    server_thread.start()
+
     print_banner()
     from core.license import IndraLicenseGuard
     is_licensed = IndraLicenseGuard.verify_license()

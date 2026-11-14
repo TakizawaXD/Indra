@@ -165,17 +165,20 @@ async def health():
 
 
 def start():
-    from core.license import IndraLicenseGuard
+    import socket
+    target_port = settings.PORT
     try:
-        IndraLicenseGuard.enforce_license()
-    except PermissionError as e:
-        print(f"[-] {e}", file=sys.stderr)
-        sys.exit(1)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex((settings.HOST, target_port)) == 0:
+                logger.warning(f"Puerto {target_port} ocupado. Conmutando a {target_port + 1}...")
+                target_port += 1
+    except Exception:
+        pass
 
     uvicorn.run(
         "backend.main:app",
         host=settings.HOST,
-        port=settings.PORT,
+        port=target_port,
         log_level="debug" if settings.DEBUG else "info",
         reload=False,
         proxy_headers=False,
