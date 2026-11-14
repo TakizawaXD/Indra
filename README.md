@@ -18,20 +18,7 @@
 
 ---
 
-## 1. LLAVE DE LICENCIA EXCLUSIVA PARA INDRA
-El sistema cuenta con un guardia criptografico estricto (`core/license.py`). Solo inicia si la llave oficial de Indra esta presente y autenticada.
-
-- **Titular de Licencia:** Indra
-- **Firma del Creador:** Takizawa
-- **Llave Maestra de Activacion:**
-```text
-INDRA-TAKIZAWA-INFINITY-KEY-9F4E-8C2A-7B1D-2026
-```
-*(Esta llave ya se encuentra preconfigurada en `config/license.key` y `.env` para activacion inmediata al clonar el repositorio).*
-
----
-
-## 2. INSTALACION Y EJECUCION EN UNA SOLA CAJA DE COMANDOS
+## 1. INSTALACION Y EJECUCION EN UNA SOLA CAJA DE COMANDOS
 
 Copia y pega la caja completa correspondiente a tu sistema operativo directamente en tu terminal.
 
@@ -60,7 +47,7 @@ git clone https://github.com/TakizawaXD/Indra.git; cd Indra; python -m pip insta
 
 ---
 
-## 3. MODALIDADES OPERATIVAS Y COLORES DEL SISTEMA
+## 2. MODALIDADES OPERATIVAS Y COLORES DEL SISTEMA
 
 El sistema clasifica sus tecnicas en tres pilares sin ambiguedades:
 
@@ -81,7 +68,7 @@ El sistema clasifica sus tecnicas en tres pilares sin ambiguedades:
 
 ---
 
-## 4. COMANDOS DE LA TERMINAL INTERACTIVA CLI
+## 3. COMANDOS DE LA TERMINAL INTERACTIVA CLI
 Para acceder a la terminal de ciberseguridad en cualquier momento:
 ```bash
 python -m terminal.shell
@@ -100,7 +87,7 @@ Comandos principales:
 
 ---
 
-## 5. VERIFICACION DE PRUEBAS DE CALIDAD
+## 4. VERIFICACION DE PRUEBAS DE CALIDAD
 Para corroborar la estabilidad y operatividad de todos los subsistemas:
 ```bash
 python -m unittest discover tests
@@ -109,7 +96,7 @@ Resultado verificado: `Ran 15 tests in 2.090s - OK` con 100% de aprobacion.
 
 ---
 
-## 6. CREDITOS Y LICENCIA
+## 5. CREDITOS Y LICENCIA
 - **Organizacion:** Indra
 - **Creador y Arquitecto:** Takizawa
 - **Sistema:** INDRA INFINITY SECURITY
